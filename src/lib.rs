@@ -416,7 +416,10 @@ pub enum PropertyValue {
     Number(i64),
 
     #[serde(rename = "bool")]
-    Bool(bool)
+    Bool(bool),
+
+    #[serde(rename = "eval")]
+    Eval(String),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

@@ -7,12 +7,12 @@
 // the data types that VM internal supports
 // ----------------------------------------
 //
-// - i64
-// - i32
-// - i16
 // - i8
-// - f64
+// - i16
+// - i32
+// - i64
 // - f32
+// - f64
 
 // data memory layout
 // ------------------
@@ -34,7 +34,7 @@
 //    |---------------------------------|
 //    |               f64               | <-- native data type
 //    |---------------------------------|
-//    | undefined     |        f32      |
+//    | undefined     |        f32      | <-- native data type
 //    |---------------------------------|
 //
 // all i8/i16/i32 integers loaded from memory will be signed-extended to i64
@@ -154,9 +154,12 @@ pub const MAX_OPCODE_NUMBER: usize = 0x480;
 // - 64 bits:
 //   instructions with 2 parameters, such as `data_load_i64`.
 //   16 bits opcode + 16 bits parameter 0 + 32 bits parameter 1 (ALIGN 4-byte alignment require)
-// - 64 bits:
-//   instructions with 3 parameter, such as `local_load_i64`.
-//   16 bits opcode + 16 bits parameter 1 + 16 bits parameter 2 + 16 bits parameter 3
+// // - 64 bits:
+// //   instructions with 3 parameter, such as `local_load_i64`.
+// //   16 bits opcode + 16 bits parameter 1 + 16 bits parameter 2 + 16 bits parameter 3
+// - 96 bits
+//   instructions with 3 parameters, such as `local_load_i64`.
+//   16 bits opcode + (16 bits padding) + 16 bits parameter 0 + 16 bits parameter 1 + 32 bits parameter 2 (ALIGN 4-byte alignment require)
 // - 96 bits
 //   instructions with 2 parameters, such as `block`.
 //   16 bits opcode + (16 bits padding) + 32 bits parameter 0 + 32 bits parameter 1 (ALIGN 4-byte alignment require)
@@ -175,7 +178,8 @@ pub const MAX_OPCODE_NUMBER: usize = 0x480;
 // - [opcode i16] - [  param i16  ]                                                    ;; 32-bit
 // - [opcode i16] - [pading 16-bit] + [       param i32       ]                        ;; 64-bit
 // - [opcode i16] - [  param i16  ] + [       param i32       ]                        ;; 64-bit
-// - [opcode i16] - [  param i16  ] + [param i16] + [param i16]                        ;; 64-bit
+// // - [opcode i16] - [  param i16  ] + [param i16] + [param i16]                        ;; 64-bit
+// - [opcode i16] - [pading 16-bit] + [param i16] + [param i16] + [    param i32    ]  ;; 96-bit
 // - [opcode i16] - [pading 16-bit] + [       param i32       ] + [    param i32    ]  ;; 96-bit
 //
 // DEPRECATED
@@ -291,22 +295,22 @@ pub enum Opcode {
     local_store_f64, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:f64) -> ()
     local_store_f32, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:f32) -> ()
 
-    local_load_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
-    local_load_extend_i32_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
-    local_load_extend_i32_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
-    local_load_extend_i16_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
-    local_load_extend_i16_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
-    local_load_extend_i8_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
-    local_load_extend_i8_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
-    local_load_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f64
-    local_load_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f32
+    local_load_extend_i64, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i64
+    local_load_extend_i32_s, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i32
+    local_load_extend_i32_u, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i32
+    local_load_extend_i16_s, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i16
+    local_load_extend_i16_u, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i16
+    local_load_extend_i8_s, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i8
+    local_load_extend_i8_u, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i8
+    local_load_extend_f64, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> f64
+    local_load_extend_f32, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> f32
 
-    local_store_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i64) -> ()
-    local_store_extend_i32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> ()
-    local_store_extend_i16, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> ()
-    local_store_extend_i8, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> ()
-    local_store_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f64) -> ()
-    local_store_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f32) -> ()
+    local_store_extend_i64, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:i64) -> ()
+    local_store_extend_i32, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:i32) -> ()
+    local_store_extend_i16, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:i32) -> ()
+    local_store_extend_i8, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:i32) -> ()
+    local_store_extend_f64, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:f64) -> ()
+    local_store_extend_f32, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:f32) -> ()
 
     // loading data
     //
@@ -1478,7 +1482,7 @@ pub enum Opcode {
 
     // general function call
     //
-    // (param function_public_index:i32) -> (...)
+    // (param function_public_index:i32) (operand args...) -> (...)
     call = 0x0400,
 
     // dynamic function call
@@ -1537,7 +1541,7 @@ pub enum Opcode {
     // imported functions, its value is equal to:
     // "the amount of imported functions" + "function internal index"
     //
-    // () (operand function_public_index:i32) -> (...)
+    // () (operand function_public_index:i32, args...) -> (...)
     dyncall,
 
     // environment function call
@@ -1545,7 +1549,7 @@ pub enum Opcode {
     // call VM built-in functions, such as getting environment variables,
     // runtime information, creating threads, etc.
     //
-    // (param envcall_num:i32) -> (...)
+    // (param envcall_num:i32) (operand args...) -> (...)
     envcall,
 
     // call 'syscall' directly
@@ -1580,8 +1584,13 @@ pub enum Opcode {
     // the list of VM supported features can be obtained using the
     // instruction 'envcall' with call number 'runtime_features'.
     //
-    // (param external_function_index:i32) -> void/i32/i64/f32/f64
+    // (param external_function_index:i32) (operand args...)-> void/i32/i64/f32/f64
     extcall,
+
+    // put the function public index to stack
+    //
+    // (param function_public_index:i32) -> i32
+    pub_index_function,
 
     // terminate VM
     //
@@ -1612,7 +1621,7 @@ pub enum Opcode {
     //
     //
     host_addr_local, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i64
-    host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
+    host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i64
     host_addr_data,         // (param offset_bytes:i16 data_public_index:i32) -> i64
     host_addr_data_extend,  // (param data_public_index:i32) (operand offset_bytes:i64) -> i64
     host_addr_heap,         // (param offset_bytes:i16) (operand heap_addr:i64) -> i64
@@ -1974,6 +1983,8 @@ impl Opcode {
             Opcode::envcall => "envcall",
             Opcode::syscall => "syscall",
             Opcode::extcall => "extcall",
+            //
+            Opcode::pub_index_function => "pub_index_function",
             //
             Opcode::panic => "panic",
             //
