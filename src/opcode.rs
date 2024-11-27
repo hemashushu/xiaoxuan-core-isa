@@ -334,6 +334,18 @@ pub enum Opcode {
     data_load_i8_s,         // (param offset_bytes:i16 data_public_index:i32) -> i8
     data_load_i8_u,         // (param offset_bytes:i16 data_public_index:i32) -> i8
 
+    // data_public_index
+    // -----------------
+    //
+    // the data public index is mixed the following items (and are sorted by the following order):
+    //
+    // - imported read-only data items
+    // - imported read-write data items
+    // - imported uninitilized data items
+    // - internal read-only data items
+    // - internal read-write data items
+    // - internal uninitilized data items
+
     // load f64 with floating-point validity check.
     //
     // (param offset_bytes:i16 data_public_index:i32) -> f64
@@ -1485,6 +1497,13 @@ pub enum Opcode {
     // (param function_public_index:i32) (operand args...) -> (...)
     call = 0x0400,
 
+    // function_public_index
+    // ---------------------
+    //
+    // `function_public_index` is mixed with
+    // imported functions and internal functions, its value is equivalent:
+    // `function_public_index` == "the amount of imported functions" + "function internal index"
+
     // dynamic function call
     //
     // calling a function that is specified at runtime.
@@ -1537,9 +1556,6 @@ pub enum Opcode {
     //                         |
     // let a = filter(list, predicate)
     // ```
-    // note that the "function_public_index" is an index that counts the number of
-    // imported functions, its value is equal to:
-    // "the amount of imported functions" + "function internal index"
     //
     // () (operand function_public_index:i32, args...) -> (...)
     dyncall,
