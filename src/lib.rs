@@ -11,7 +11,6 @@ use std::{collections::HashMap, fmt::Display};
 use serde::{Deserialize, Serialize};
 
 pub const RUNTIME_CODE_NAME: &[u8; 6] = b"Selina"; // is also my lovely daughter's name (XiaoXuan for zh-Hans) :D
-pub const IMAGE_FILE_MAGIC_NUMBER: &[u8; 8] = b"ancmod\0\0"; // the abbr of "XiaoXuan Core Module"
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct EffectiveVersion {
@@ -82,19 +81,20 @@ pub const IMAGE_FORMAT_MINOR_VERSION: u16 = 0;
 //
 // if a shared module is duplicated in the dependency tree with different versions,
 // and the major version is different, the compiler will complain. otherwise,
-// the version required by the application is preferred, or the maximum minor version
-// is selected.
+// the maximum minor version is selected.
 //
-// for the local and remote shared modules and libraries (i.e. file base dependencies),
-// because they lack version information, the file required by
-// the application is preferred, or the first declear is selected.
+// for the local and remote file-base shared modules and libraries,
+// i.e. file base dependencies, because they lack version information,
+// the file required by the application is preferred, or the first declear is selected.
 //
-// note to the author of shared module:
+// note to the author of shared module
+// -----------------------------------
+//
 // it is important to note that the public interface (i.e., API) of
-// a module MUST REMAIN UNCHANGED throughout the major release. for example,
-// the API of version 1.9 and 1.1 should be the same (the newer may add
-// interfaces, but the existing interfaces should NOT be changed or removed),
-// but version 2.0 and 1.9 may be different.
+// a shared module MUST REMAIN UNCHANGED throughout the major versions release.
+// for example, the API of version 1.9 and 1.1 should be the same
+// (the newer may add interfaces, but the existing interfaces should NOT be
+// changed or removed), but version 2.0 and 1.9 may be different.
 
 /// the raw data type of operands
 pub type Operand = [u8; 8];
@@ -229,7 +229,7 @@ impl ForeignValue {
 /// the type of dependent shared modules
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ModuleDependentType {
+pub enum ModuleDependencyType {
     // module from local file system
     //
     // the value of this type is a path to a folder, e.g.
@@ -317,7 +317,7 @@ pub enum ModuleDependentType {
 /// the type of dependent libraries
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ExternalLibraryDependentType {
+pub enum ExternalLibraryDependencyType {
     // library from the local file system
     //
     // the value of this type is a path to a file (with library so-name), e.g.
@@ -389,21 +389,37 @@ pub enum ExternalLibraryDependentType {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "module")]
-pub enum ModuleDependentValue {
-    Local(String),
-    Remote(Box<DependentRemote>),
-    Share(Box<DependentShare>),
+pub enum ModuleDependency {
+    #[serde(rename = "local")]
+    Local(Box<DependencyLocal>),
+
+    #[serde(rename = "remote")]
+    Remote(Box<DependencyRemote>),
+
+    #[serde(rename = "share")]
+    Share(Box<DependencyShare>),
+
+    #[serde(rename = "runtime")]
     Runtime,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "library")]
-pub enum ExternalLibraryDependentValue {
-    Local(/* library soname path */ String),
-    Remote(Box<DependentRemote>),
-    Share(Box<DependentShare>),
+pub enum ExternalLibraryDependency {
+    #[serde(rename = "local")]
+    Local(Box<DependencyLocal>),
+
+    #[serde(rename = "remote")]
+    Remote(Box<DependencyRemote>),
+
+    #[serde(rename = "share")]
+    Share(Box<DependencyShare>),
+
+    #[serde(rename = "runtime")]
     Runtime,
-    System(/* library soname */ String),
+
+    #[serde(rename = "system")]
+    System(/* the soname of library, e.g. libz.so.1 */ String),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -423,30 +439,53 @@ pub enum PropertyValue {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(rename = "cond")]
+pub enum DependencyCondition {
+    #[serde(rename = "is_true")]
+    IsTrue(String),
+
+    #[serde(rename = "is_false")]
+    IsFalse(String),
+
+    #[serde(rename = "eval")]
+    Eval(String),
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(rename = "local")]
+pub struct DependencyLocal {
+    pub path: String, // the path to the module project or the *.so.N file
+    pub values: Option<HashMap<String, PropertyValue>>,
+    pub condition: Option<DependencyCondition>,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "remote")]
-pub struct DependentRemote {
+pub struct DependencyRemote {
     pub url: String,
     pub reversion: String, // commit or tag
     pub path: String,
     pub values: Option<HashMap<String, PropertyValue>>,
+    pub condition: Option<DependencyCondition>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "share")]
-pub struct DependentShare {
+pub struct DependencyShare {
     pub repository: Option<String>, // the name of repository
     pub version: String,            // e.g. "1.0"
     pub values: Option<HashMap<String, PropertyValue>>,
+    pub condition: Option<DependencyCondition>,
 }
 
-impl Display for ExternalLibraryDependentType {
+impl Display for ExternalLibraryDependencyType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ExternalLibraryDependentType::Local => f.write_str("local"),
-            ExternalLibraryDependentType::Remote => f.write_str("remote"),
-            ExternalLibraryDependentType::Share => f.write_str("share"),
-            ExternalLibraryDependentType::Runtime => f.write_str("runtime"),
-            ExternalLibraryDependentType::System => f.write_str("system"),
+            ExternalLibraryDependencyType::Local => f.write_str("local"),
+            ExternalLibraryDependencyType::Remote => f.write_str("remote"),
+            ExternalLibraryDependencyType::Share => f.write_str("share"),
+            ExternalLibraryDependencyType::Runtime => f.write_str("runtime"),
+            ExternalLibraryDependencyType::System => f.write_str("system"),
         }
     }
 }
@@ -495,94 +534,99 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::{
-        DependentRemote, DependentShare, ExternalLibraryDependentValue, ModuleDependentValue,
+        DependencyCondition, DependencyLocal, DependencyRemote, DependencyShare,
+        ExternalLibraryDependency, ModuleDependency,
     };
 
     #[test]
-    fn test_serialize_module_dependent_value() {
+    fn test_serialize_module_dependency() {
         assert_eq!(
-            ason::to_string(&ModuleDependentValue::Local(
-                "~/myprojects/hello".to_owned()
-            ))
+            ason::to_string(&ModuleDependency::Local(Box::new(DependencyLocal {
+                path: "~/myprojects/hello".to_owned(),
+                values: None,
+                condition: None
+            })))
             .unwrap(),
-            r#"module::Local("~/myprojects/hello")"#
+            r#"module::local({
+    path: "~/myprojects/hello"
+    values: Option::None
+    condition: Option::None
+})"#
         );
 
         assert_eq!(
-            ason::to_string(&ModuleDependentValue::Remote(Box::new(DependentRemote {
+            ason::to_string(&ModuleDependency::Remote(Box::new(DependencyRemote {
                 url: "https://github.com/hemashushu/xiaoxuan-core-extension.git".to_owned(),
                 reversion: "v1.0.0".to_owned(),
                 path: "/modules/sha2".to_owned(),
                 values: None,
+                condition: None,
             })))
             .unwrap(),
-            r#"module::Remote({
+            r#"module::remote({
     url: "https://github.com/hemashushu/xiaoxuan-core-extension.git"
     reversion: "v1.0.0"
     path: "/modules/sha2"
     values: Option::None
+    condition: Option::None
 })"#
         );
 
-        // let mut props = HashMap::new();
-        // props.insert("foo".to_owned(), PropertyValue::String("Hello".to_owned()));
-        // props.insert("bar".to_owned(), PropertyValue::Number(123));
-
         assert_eq!(
-            ason::to_string(&ModuleDependentValue::Share(Box::new(DependentShare {
+            ason::to_string(&ModuleDependency::Share(Box::new(DependencyShare {
                 repository: Option::Some("default".to_owned()),
                 version: "11.13".to_owned(),
                 values: None,
+                condition: Some(DependencyCondition::IsTrue("enable_me".to_owned()))
             })))
             .unwrap(),
-            r#"module::Share({
+            r#"module::share({
     repository: Option::Some("default")
     version: "11.13"
     values: Option::None
+    condition: Option::Some(cond::is_true("enable_me"))
 })"#
         );
 
-        // values: Option::Some({
-        //     "foo": value::string("Hello")
-        //     "bar": value::number(123_i64)
-        // })
-
         assert_eq!(
-            ason::to_string(&ModuleDependentValue::Runtime).unwrap(),
-            r#"module::Runtime"#
+            ason::to_string(&ModuleDependency::Runtime).unwrap(),
+            r#"module::runtime"#
         );
     }
 
     #[test]
-    fn test_deserialize_external_library_dependent_value() {
-        let s0 = r#"library::Share({
+    fn test_deserialize_external_library_dependency() {
+        let s0 = r#"library::share({
             repository: Option::Some("default")
             version: "17.19"
         })"#;
 
-        let v0: ExternalLibraryDependentValue = ason::from_str(s0).unwrap();
+        let v0: ExternalLibraryDependency = ason::from_str(s0).unwrap();
         assert_eq!(
             v0,
-            ExternalLibraryDependentValue::Share(Box::new(DependentShare {
+            ExternalLibraryDependency::Share(Box::new(DependencyShare {
                 repository: Option::Some("default".to_owned()),
                 version: "17.19".to_owned(),
                 values: None,
+                condition: None
             }))
         );
 
-        let s1 = r#"library::Remote({
+        let s1 = r#"library::remote({
             url: "https://github.com/hemashushu/xiaoxuan-core-extension.git"
             reversion: "v1.0.0"
             path: "/libraries/lz4/lib/liblz4.so.1"
+            condition: Option::Some(cond::is_false("enable_me"))
         })"#;
-        let v1: ExternalLibraryDependentValue = ason::from_str(s1).unwrap();
+        let v1: ExternalLibraryDependency = ason::from_str(s1).unwrap();
         assert_eq!(
             v1,
-            ExternalLibraryDependentValue::Remote(Box::new(DependentRemote {
+            ExternalLibraryDependency::Remote(Box::new(DependencyRemote {
                 url: "https://github.com/hemashushu/xiaoxuan-core-extension.git".to_owned(),
                 reversion: "v1.0.0".to_owned(),
                 path: "/libraries/lz4/lib/liblz4.so.1".to_owned(),
                 values: None,
+                condition: Some(DependencyCondition::IsFalse("enable_me".to_owned()))
             }))
         );
     }
