@@ -158,7 +158,7 @@ pub enum MemoryDataType {
     I64,
     F32,
     F64,
-    Raw,
+    Bytes,
 }
 
 #[repr(u8)]
@@ -167,6 +167,29 @@ pub enum DataSectionType {
     ReadOnly = 0x0, // .rodata
     ReadWrite,      // .data
     Uninit,         // .bss
+}
+
+impl Display for OperandDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OperandDataType::I64 => f.write_str("i64"),
+            OperandDataType::I32 => f.write_str("i32"),
+            OperandDataType::F64 => f.write_str("f64"),
+            OperandDataType::F32 => f.write_str("f32"),
+        }
+    }
+}
+
+impl Display for MemoryDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MemoryDataType::I64 => f.write_str("i64"),
+            MemoryDataType::I32 => f.write_str("i32"),
+            MemoryDataType::F64 => f.write_str("f64"),
+            MemoryDataType::F32 => f.write_str("f32"),
+            MemoryDataType::Bytes => f.write_str("byte[]"),
+        }
+    }
 }
 
 impl Display for DataSectionType {

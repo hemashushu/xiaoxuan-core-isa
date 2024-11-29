@@ -942,8 +942,8 @@ pub enum Opcode {
     // calls 'block frame', 'block frame' is similar to 'function frame'.
     //
     // note that this instruction is different from the WebAssembly 'block' instruction,
-    // its parameters are not 'local variables' and the values are placed on the
-    // operand stack, they cannot be accessed with 'local_load/local_store' instructions.
+    // its parameters are not 'local variables' (the values of parameters are placed on the
+    // operand stack), and they cannot be accessed with 'local_load/local_store' instructions.
     //
     // (param type_index:i32, local_list_index:i32)
     block,
@@ -1122,7 +1122,6 @@ pub enum Opcode {
     // note that the stack frame created by this instructon still has the local
     // varialbe area (it is just empty) even though no 'local_list_index' is specified.
     //
-    // // (param type_index:i32, local_list_index:i32, next_inst_offset:i32)
     // (param type_index:i32, next_inst_offset:i32)
     block_alt,
 
