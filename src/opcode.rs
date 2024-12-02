@@ -137,8 +137,8 @@
 
 pub const MAX_OPCODE_NUMBER: usize = 0x480;
 
-// the instruction schemes
-// -----------------------
+// the instruction encoding
+// ------------------------
 //
 // XiaoXuan Core VM instructions are NOT fixed-length code.
 // there are 16, 32, 64, 96 and 128 bits length instructions,
@@ -154,38 +154,30 @@ pub const MAX_OPCODE_NUMBER: usize = 0x480;
 // - 64 bits:
 //   instructions with 2 parameters, such as `data_load_i64`.
 //   16 bits opcode + 16 bits parameter 0 + 32 bits parameter 1 (ALIGN 4-byte alignment require)
-// // - 64 bits:
-// //   instructions with 3 parameter, such as `local_load_i64`.
-// //   16 bits opcode + 16 bits parameter 1 + 16 bits parameter 2 + 16 bits parameter 3
-// - 96 bits
-//   instructions with 3 parameters, such as `local_load_i64`.
-//   16 bits opcode + (16 bits padding) + 16 bits parameter 0 + 16 bits parameter 1 + 32 bits parameter 2 (ALIGN 4-byte alignment require)
+// - 64 bits:
+//   instructions with 3 parameter, such as `local_load_i64`.
+//   16 bits opcode + 16 bits parameter 1 + 16 bits parameter 2 + 16 bits parameter 3
 // - 96 bits
 //   instructions with 2 parameters, such as `block`.
 //   16 bits opcode + (16 bits padding) + 32 bits parameter 0 + 32 bits parameter 1 (ALIGN 4-byte alignment require)
-//
-// DEPRECATED
-// // - 128 bits
-// //   instructions with 3 parameters, such as `block_alt`
-// //   16 bits opcode + (16 bits padding) + 32 bits parameter 0 + 32 bits parameter 1 + 32 bits parameter 2 (ALIGN 4-byte alignment require)
+// - 128 bits
+//   instructions with 3 parameters, such as `block_alt`.
+//   16 bits opcode + (16 bits padding) + 32 bits parameter 0 + 32 bits parameter 1 + 32 bits parameter 2 (ALIGN 4-byte alignment require)
 //
 // note that a `nop` instruction will be inserted automatically before
 // an instruction which contains `i32` parameters to achieve 32 bits (4-byte) alignment.
 
-// the simplified schemes:
+// the simplified encodings:
 //
-// - [opcode i16]                                                                      ;; 16-bit
-// - [opcode i16] - [  param i16  ]                                                    ;; 32-bit
-// - [opcode i16] - [pading 16-bit] + [       param i32       ]                        ;; 64-bit
-// - [opcode i16] - [  param i16  ] + [       param i32       ]                        ;; 64-bit
-// // - [opcode i16] - [  param i16  ] + [param i16] + [param i16]                        ;; 64-bit
-// - [opcode i16] - [pading 16-bit] + [param i16] + [param i16] + [    param i32    ]  ;; 96-bit
-// - [opcode i16] - [pading 16-bit] + [       param i32       ] + [    param i32    ]  ;; 96-bit
+// - [opcode i16]                                                               ;; 16-bit
+// - [opcode i16] - [param i16    ]                                             ;; 32-bit
+// - [opcode i16] - [pading 16-bit] + [param i32]                               ;; 64-bit
+// - [opcode i16] - [param i16    ] + [param i32]                               ;; 64-bit
+// - [opcode i16] - [param i16    ] + [param i16] + [param i16]                 ;; 64-bit
+// - [opcode i16] - [pading 16-bit] + [param i32] + [param i32]                 ;; 96-bit
+// - [opcode i16] - [pading 16-bit] + [param i32] + [param i32] + [param i32]   ;; 128-bit
 //
-// DEPRECATED
-// // - [opcode i16] - [pading 16-bit] + [param i32              ] + [param i32] + [param i32]     ;; 128-bit
-//
-// the opcode scheme:
+// the opcode encoding:
 //
 // MSB           LSB
 // 00000000 00000000
@@ -295,22 +287,22 @@ pub enum Opcode {
     local_store_f64, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:f64) -> ()
     local_store_f32, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:f32) -> ()
 
-    local_load_extend_i64, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i64
-    local_load_extend_i32_s, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i32
-    local_load_extend_i32_u, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i32
-    local_load_extend_i16_s, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i16
-    local_load_extend_i16_u, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i16
-    local_load_extend_i8_s, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i8
-    local_load_extend_i8_u, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i8
-    local_load_extend_f64, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> f64
-    local_load_extend_f32, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> f32
+    local_load_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
+    local_load_extend_i32_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
+    local_load_extend_i32_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
+    local_load_extend_i16_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
+    local_load_extend_i16_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
+    local_load_extend_i8_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
+    local_load_extend_i8_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
+    local_load_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f64
+    local_load_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f32
 
-    local_store_extend_i64, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:i64) -> ()
-    local_store_extend_i32, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:i32) -> ()
-    local_store_extend_i16, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:i32) -> ()
-    local_store_extend_i8, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:i32) -> ()
-    local_store_extend_f64, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:f64) -> ()
-    local_store_extend_f32, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64 value:f32) -> ()
+    local_store_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i64) -> ()
+    local_store_extend_i32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> ()
+    local_store_extend_i16, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> ()
+    local_store_extend_i8, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> ()
+    local_store_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f64) -> ()
+    local_store_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f32) -> ()
 
     // loading data
     //
@@ -1075,6 +1067,7 @@ pub enum Opcode {
     // ```
     //
     // 'start_inst_offset' is the address of the next instruction after 'block'.
+    // 'start_inst_offset' = 'address_of_recur' - 'address_of_block' - INSTRUCTION_LENGTH('block')
     //
     // (param reversed_index:i16, start_inst_offset:i32)
     recur,
@@ -1122,7 +1115,7 @@ pub enum Opcode {
     // note that the stack frame created by this instructon still has the local
     // varialbe area (it is just empty) even though no 'local_list_index' is specified.
     //
-    // (param type_index:i32, next_inst_offset:i32)
+    // (param type_index:i32, local_list_index:i32, next_inst_offset:i32)
     block_alt,
 
     // an instruction to jump out of the current 'block_alt' scope.
@@ -1330,46 +1323,45 @@ pub enum Opcode {
     // control flow structures and instructions
     // ----------------------------------------
     //
-    // ## branch
+    // ## Branch
     //
-    // | structure         | assembly          | instruction(s)     |
+    // | IR                | Assembly          | Instructions       |
     // |-------------------|-------------------|--------------------|
     // |                   |                   | ..a..              |
-    // | if ..a.. {        | (when (a)         | block_nez -\       |
-    // |    ..b..          |       (b)         |   ..b..    |       |
-    // | }                 | )                 | end        |       |
+    // | when ..a..        | when (a)          | block_nez -\       |
+    // | then ..b..        |      (b)          |   ..b..    |       |
+    // |                   |                   | end        |       |
     // |                   |                   | ...    <---/       |
     // |-------------------|-------------------|--------------------|
     // |                   |                   | ..a..              |
-    // | if ..a.. {        | (if (a)           | block_alt ---\     |
-    // |    ..b..          |     (b)           |   ..b..      |     |
-    // | } else {          |     (c)           |   break_alt -|-\   |
-    // |    ..c..          | )                 |   ..c..  <---/ |   |
-    // | }                 |                   | end            |   |
+    // | if ..a..          | if (a)            | block_alt ---\     |
+    // | then ..b..        |    (b)            |   ..b..      |     |
+    // | else ..c..        |    (c)            |   break_alt -|-\   |
+    // |                   |                   |   ..c..  <---/ |   |
+    // |                   |                   | end            |   |
     // |                   |                   | ...      <-----/   |
     // |-------------------|-------------------|--------------------|
     // |                   |                   | ..a..              |
-    // | if ..a.. {        | (if (a)           | block_alt ---\     |
-    // |    ..b..          |     (b)           |   ..b..      |     |
-    // | } else if ..c.. { |     (if (c)       |   break_alt--|---\ |
-    // |    ..d..          |         (d)       |   ..c..  <---/   | |
-    // | } else {          |         (e)       |   block_alt --\  | |
-    // |    ..e..          |     )             |     ..d..     |  | |
-    // | }                 | )                 |     break_alt-|-\| |
+    // | if ..a..          | if (a)            | block_alt ---\     |
+    // | then ..b..        |    (b)            |   ..b..      |     |
+    // | else if ..c..     |     if (c)        |   break_alt--|---\ |
+    // |    then ..d..     |        (d)        |   ..c..  <---/   | |
+    // |    else ..e..     |        (e)        |   block_alt --\  | |
+    // |                   |                   |     ..d..     |  | |
+    // |                   |                   |     break_alt-|-\| |
     // |                   |                   |     ..e..  <--/ || |
     // |                   |                   |   end           || |
     // |                   |                   | end        <----/| |
     // |                   |                   | ...        <-----/ |
     // |                   |                   |                    |
-    // |                   | ----------------- | ------------------ |
-    // |                   |                   |                    |
-    // |                   | (branch           | block              |
-    // |                   |   (case (a) (b))  |   ..a..            |
-    // |                   |   (case (c) (d))  |   block_nez -\     |
-    // |                   |   (default (e))   |     ..b..    |     |
-    // |                   | )                 |     break 1 -|--\  |
-    // |                   |                   |   end        |  |  |
-    // |                   |                   |   ..c..  <---/  |  |
+    // | ----------------- | ----------------- | ------------------ |
+    // | match (let v=) {  |                   | block              |
+    // |   case ..a..:     |                   |   ..a..            |
+    // |        ..b..      |                   |   block_nez -\     |
+    // |   case ..c..:     |                   |     ..b..    |     |
+    // |        ..d..:     |                   |     break 1 -|--\  |
+    // |   default:        |                   |   end        |  |  |
+    // |        ..e..      |                   |   ..c..  <---/  |  |
     // |                   |                   |   block_nez -\  |  |
     // |                   |                   |     ..d..    |  |  |
     // |                   |                   |     break 1 -|--|  |
@@ -1379,117 +1371,81 @@ pub enum Opcode {
     // |                   |                   | ...        <----/  |
     // |-------------------|-------------------|--------------------|
     //
-    // ## loop
+    // ## Loop
     //
-    // | structure         | assembly          | instructions(s)    |
+    // | IR                | Assembly          | Instructions       |
     // |-------------------|-------------------|--------------------|
-    // | loop {            | (for              | block              |
+    // | loop {            | block {           | block              |
     // |    ...            |   ...             |   ...   <--\       |
-    // | }                 |   (recur ...)     |   recur 0 -/       |
-    // |                   | ))                | end                |
+    // | }                 |   recur()         |   recur 0 -/       |
+    // |                   | }                 | end                |
     // |-------------------|-------------------|--------------------|
-    // | while ..a.. {     |                   | block              |
-    // |    ...            |                   |   ..a..   <----\   |
-    // | }                 |                   |   break_nez 0 -|-\ |
-    // |                   |                   |   ...          | | |
-    // | for {...}         |                   |   recur 0 -----/ | |
-    // |                   |                   | end              | |
-    // |                   |                   | ...        <-----/ |
-    // |                   |                   |                    |
-    // |-------------------| ----------------- | ------------------ |
-    // |                   |                   |                    |
-    // |                   | (for              | block              |
-    // |                   |   (when (a)       |   ..a..    <---\   |
-    // |                   |     ( ...         |   block_nez    |   |
-    // |                   |       (recur ...) |     ...        |   |
-    // |                   |     )             |     recur 1 ---/   |
-    // |                   |   )               |   end              |
-    // |                   | ))                | end                |
-    // |                   |                   |                    |
-    // |                   |                   |                    |
-    // |-------------------|-------------------|--------------------|
-    // | do {              |                   | block              |
-    // |    ...            |                   |   ...      <---\   |
-    // | }while(..a..)     |                   |   ..a..        |   |
-    // |                   |                   |   recur_nez 0 -/   |
-    // |                   |                   | end                |
-    // |                   |                   |                    |
-    // |                   | ----------------- | ------------------ |
-    // |                   |                   |                    |
-    // |                   | (for              | block              |
-    // |                   |   ...             |   ...      <---\   |
-    // |                   |   (when (a)       |   ..a..        |   |
-    // |                   |     (recur ...)   |   block_nez    |   |
-    // |                   |   )               |     recur 1 ---/   |
-    // |                   | ))                |   end              |
+    // | for(let v=) {     | block {           | block              |
+    // |   when (a) {      |   when (a) {      |   ..a..    <---\   |
+    // |     ...           |     ...           |   block_nez    |   |
+    // |     recur(b)      |     recur(b)      |     ...        |   |
+    // |   }               |   }               |     ..b..      |   |
+    // | }                 | }                 |     recur 1 ---/   |
+    // |                   |                   |   end              |
     // |                   |                   | end                |
     // |                   |                   |                    |
     // |                   |                   |                    |
     // |-------------------|-------------------|--------------------|
     //
+    // ## Break
     //
-    // ## TCO
-    //
-    // | structure         | assembly          | instructions(s)    |
+    // | IR                | Assembly          | Instructions       |
     // |-------------------|-------------------|--------------------|
-    // | func foo {        | (function         | -- func begin --   |
-    // |    ...            |   ( ...           |   ...   <-------\  |
-    // |    if ..a.. {     |     (when (a)     |   ..a..         |  |
-    // |      foo()        |       (selfcall.) |   block_nez --\ |  |
-    // |    }              |     )             |     recur 1 --|-/  |
-    // | }                 |   )               |   end         |    |
-    // |                   | )                 | end      <----/    |
-    // |                   |                   |                    |
-    // |                   | ----------------- | ------------------ |
-    // |                   |                   |                    |
-    // |                   |                   | -- func begin --   |
-    // |                   |                   |   ...   <-------\  |
-    // |                   |                   |   ..a..         |  | // note:
-    // |                   |                   |   recur_nez 0 --/  | // optimized with 'recur_nez'
-    // |                   |                   | end                |
-    // |                   |                   |                    |
-    // |-------------------|-------------------|--------------------|
-    // | func foo {        | (function         | -- func begin --   |
-    // |    if ..a.. {     |   (if (a)         |   ..a.. <------\   |
-    // |       ..b..       |     (b)           |   block_alt -\ |   |
-    // |    } else {       |     ( ...         |     ..b..    | |   |
-    // |       ..c..       |       ..c..       |   break_alt -|-|-\ |
-    // |       foo()       |       (selfcall.) |     ..c.. <--/ | | |
-    // |    }              |     )             |     recur 1 ---/ | |
-    // | }                 |   )               |   end            | |
-    // |                   | ))                | end         <----/ |
-    // |                   |                   |                    |
-    // |-------------------|-------------------|--------------------|
-    //
-    //
-    // ## break
-    //
-    // | structure         | assembly          | instructions(s)    |
-    // |-------------------|-------------------|--------------------|
-    // |                   |                   |                    |
-    // | loop {            | (for              | block              |
+    // | loop {            | block {           | block              |
     // |    ...            |    ...            |   ...        <---\ |
-    // |    if ..a.. {     |    (when (a)      |   ..a..          | |
-    // |      break;       |                   |   block_nez      | |
-    // |    }              |       (break ...) |     break 1 ---\ | |
-    // |    ...            |    )              |   end          | | |
-    // | }                 |    ...            |   ...          | | |
-    // |                   |    (recur ...)    |   recur 0  ----|-/ |
-    // |                   | ))                | end            |   |
+    // |    if ..a..       |    when           |   ..a..          | |
+    // |    then break     |      (a)          |   block_nez      | |
+    // |    ...            |      break        |     break 1 ---\ | |
+    // | }                 |    ...            |   end          | | |
+    // |                   |    recur()        |   ...          | | |
+    // |                   | }                 |   recur 0  ----|-/ |
+    // |                   |                   | end            |   |
     // |                   |                   | ...      <-----/   |
     // |                   |                   |                    |
     // |-------------------|-------------------|--------------------|
-    // | func foo {        | (function         | -- func begin --   |
+    // | fn foo() {        | fn foo()          | -- func begin --   |
     // |    ...            |   ...             |   ...              |
-    // |    if ..a.. {     |   (when (a)       |   ..a..            |
-    // |      return ...;  |                   |   block_nez        |
-    // |    }              |       (return ..) |     break 1  ---\  |
-    // |    ...            |   )               |   end           |  |
-    // | }                 |   ...             |   ...           |  |
-    // |                   | ))                | end         <---/  |
+    // |    if ..a..       |   when            |   ..a..            |
+    // |    then return    |     (a)           |   block_nez        |
+    // |    ...            |     break_fn..)   |     break 1  ---\  |
+    // | }                 |   ...             |   end           |  |
+    // |                   | }                 |   ...           |  |
+    // |                   |                   | end         <---/  |
     // |                   |                   |                    |
     // |                   |                   |                    |
     // |-------------------|-------------------|--------------------|
+    //
+    // ## TCO
+    //
+    // | IR                | Assembly          | instructions       |
+    // |-------------------|-------------------|--------------------|
+    // | fn foo() {        | fn foo() {        | -- func begin --   |
+    // |    ...            |     ...           |   ...   <-------\  |
+    // |    when ..a..     |     when (a) {    |   ..a..         |  |
+    // |    then {         |       ...         |   block_nez --\ |  |
+    // |      ...          |       recur_fn()  |     ...       | |  |
+    // |      tailcall()   |     }             |     recur 1 --|-/  |
+    // |    }              | }                 |   end         |    |
+    // | }                 |                   | end      <----/    |
+    // |                   |                   |                    |
+    // |-------------------|-------------------|--------------------|
+    // | fn foo() {        | fn foo() {        | -- func begin --   |
+    // |   if ..a..        |   if (a)          |   ..a.. <------\   |
+    // |   then ..b..      |      (b)          |   block_alt -\ |   |
+    // |   else {          |      {            |     ..b..    | |   |
+    // |     ..c..         |        c          |     brk_alt -|-|-\ |
+    // |     tailcall()    |        recur_fn() |     ..c.. <--/ | | |
+    // |   }               |      }            |     recur 1 ---/ | |
+    // | }                 | }                 |   end            | |
+    // |                   |                   | end         <----/ |
+    // |                   |                   |                    |
+    // |-------------------|-------------------|--------------------|
+    //
 
     // general function call
     //
@@ -1636,7 +1592,7 @@ pub enum Opcode {
     //
     //
     host_addr_local, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i64
-    host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i16) (operand offset_bytes:i64) -> i64
+    host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
     host_addr_data,         // (param offset_bytes:i16 data_public_index:i32) -> i64
     host_addr_data_extend,  // (param data_public_index:i32) (operand offset_bytes:i64) -> i64
     host_addr_heap,         // (param offset_bytes:i16) (operand heap_addr:i64) -> i64
