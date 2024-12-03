@@ -1555,7 +1555,7 @@ pub enum Opcode {
     // the list of VM supported features can be obtained using the
     // instruction 'envcall' with call number 'runtime_features'.
     //
-    // (param external_function_index:i32) (operand args...)-> void/i32/i64/f32/f64
+    // (param external_function_index:i32) (operand args...) -> void/i32/i64/f32/f64
     extcall,
 
     // put the function public index to stack
@@ -1979,6 +1979,39 @@ impl Opcode {
             "imm_f32" => Opcode::imm_f32,
             "imm_f64" => Opcode::imm_f64,
             //
+            "local_load_i64" => Opcode::local_load_i64,
+            "local_load_i32_s" => Opcode::local_load_i32_s,
+            "local_load_i32_u" => Opcode::local_load_i32_u,
+            "local_load_i16_s" => Opcode::local_load_i16_s,
+            "local_load_i16_u" => Opcode::local_load_i16_u,
+            "local_load_i8_s" => Opcode::local_load_i8_s,
+            "local_load_i8_u" => Opcode::local_load_i8_u,
+            "local_load_f64" => Opcode::local_load_f64,
+            "local_load_f32" => Opcode::local_load_f32,
+            "local_store_i64" => Opcode::local_store_i64,
+            "local_store_i32" => Opcode::local_store_i32,
+            "local_store_i16" => Opcode::local_store_i16,
+            "local_store_i8" => Opcode::local_store_i8,
+            "local_store_f64" => Opcode::local_store_f64,
+            "local_store_f32" => Opcode::local_store_f32,
+            //
+            "local_load_extend_i64" => Opcode::local_load_extend_i64,
+            "local_load_extend_i32_s" => Opcode::local_load_extend_i32_s,
+            "local_load_extend_i32_u" => Opcode::local_load_extend_i32_u,
+            "local_load_extend_i16_s" => Opcode::local_load_extend_i16_s,
+            "local_load_extend_i16_u" => Opcode::local_load_extend_i16_u,
+            "local_load_extend_i8_s" => Opcode::local_load_extend_i8_s,
+            "local_load_extend_i8_u" => Opcode::local_load_extend_i8_u,
+            "local_load_extend_f64" => Opcode::local_load_extend_f64,
+            "local_load_extend_f32" => Opcode::local_load_extend_f32,
+            //
+            "local_store_extend_i64" => Opcode::local_store_extend_i64,
+            "local_store_extend_i32" => Opcode::local_store_extend_i32,
+            "local_store_extend_i16" => Opcode::local_store_extend_i16,
+            "local_store_extend_i8" => Opcode::local_store_extend_i8,
+            "local_store_extend_f64" => Opcode::local_store_extend_f64,
+            "local_store_extend_f32" => Opcode::local_store_extend_f32,
+            //
             "data_load_i64" => Opcode::data_load_i64,
             "data_load_i32_s" => Opcode::data_load_i32_s,
             "data_load_i32_u" => Opcode::data_load_i32_u,
@@ -2011,39 +2044,6 @@ impl Opcode {
             "data_store_extend_i8" => Opcode::data_store_extend_i8,
             "data_store_extend_f64" => Opcode::data_store_extend_f64,
             "data_store_extend_f32" => Opcode::data_store_extend_f32,
-            //
-            "local_load_64" => Opcode::local_load_i64,
-            "local_load_i32_s" => Opcode::local_load_i32_s,
-            "local_load_i32_u" => Opcode::local_load_i32_u,
-            "local_load_i16_s" => Opcode::local_load_i16_s,
-            "local_load_i16_u" => Opcode::local_load_i16_u,
-            "local_load_i8_s" => Opcode::local_load_i8_s,
-            "local_load_i8_u" => Opcode::local_load_i8_u,
-            "local_load_f64" => Opcode::local_load_f64,
-            "local_load_f32" => Opcode::local_load_f32,
-            "local_store_i64" => Opcode::local_store_i64,
-            "local_store_i32" => Opcode::local_store_i32,
-            "local_store_i16" => Opcode::local_store_i16,
-            "local_store_i8" => Opcode::local_store_i8,
-            "local_store_f64" => Opcode::local_store_f64,
-            "local_store_f32" => Opcode::local_store_f32,
-            //
-            "local_load_extend_i64" => Opcode::local_load_extend_i64,
-            "local_load_extend_i32_s" => Opcode::local_load_extend_i32_s,
-            "local_load_extend_i32_u" => Opcode::local_load_extend_i32_u,
-            "local_load_extend_i16_s" => Opcode::local_load_extend_i16_s,
-            "local_load_extend_i16_u" => Opcode::local_load_extend_i16_u,
-            "local_load_extend_i8_s" => Opcode::local_load_extend_i8_s,
-            "local_load_extend_i8_u" => Opcode::local_load_extend_i8_u,
-            "local_load_extend_f64" => Opcode::local_load_extend_f64,
-            "local_load_extend_f32" => Opcode::local_load_extend_f32,
-            //
-            "local_store_extend_i64" => Opcode::local_store_extend_i64,
-            "local_store_extend_i32" => Opcode::local_store_extend_i32,
-            "local_store_extend_i16" => Opcode::local_store_extend_i16,
-            "local_store_extend_i8" => Opcode::local_store_extend_i8,
-            "local_store_extend_f64" => Opcode::local_store_extend_f64,
-            "local_store_extend_f32" => Opcode::local_store_extend_f32,
             //
             "memory_load_i64" => Opcode::memory_load_i64,
             "memory_load_i32_s" => Opcode::memory_load_i32_s,
