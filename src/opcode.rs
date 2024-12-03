@@ -384,33 +384,33 @@ pub enum Opcode {
     // loading heap memory
     //
     // note that the address of heap is a 64-bit integer number.
-    heap_load_i64 = 0x0200, // (param offset_bytes:i16) (operand heap_addr:i64) -> i64
-    heap_load_i32_s,        // (param offset_bytes:i16) (operand heap_addr:i64) -> i32
-    heap_load_i32_u,        // (param offset_bytes:i16) (operand heap_addr:i64) -> i32
-    heap_load_i16_s,        // (param offset_bytes:i16) (operand heap_addr:i64) -> i16
-    heap_load_i16_u,        // (param offset_bytes:i16) (operand heap_addr:i64) -> i16
-    heap_load_i8_s,         // (param offset_bytes:i16) (operand heap_addr:i64) -> i8
-    heap_load_i8_u,         // (param offset_bytes:i16) (operand heap_addr:i64) -> i8
+    memory_load_i64 = 0x0200, // (param offset_bytes:i16) (operand heap_addr:i64) -> i64
+    memory_load_i32_s,        // (param offset_bytes:i16) (operand heap_addr:i64) -> i32
+    memory_load_i32_u,        // (param offset_bytes:i16) (operand heap_addr:i64) -> i32
+    memory_load_i16_s,        // (param offset_bytes:i16) (operand heap_addr:i64) -> i16
+    memory_load_i16_u,        // (param offset_bytes:i16) (operand heap_addr:i64) -> i16
+    memory_load_i8_s,         // (param offset_bytes:i16) (operand heap_addr:i64) -> i8
+    memory_load_i8_u,         // (param offset_bytes:i16) (operand heap_addr:i64) -> i8
 
     // load f64 with floating-point validity check.
     //
     // (param offset_bytes:i16) (operand heap_addr:i64) -> f64
-    heap_load_f64,
+    memory_load_f64,
 
     // load f32 with floating-point validity check.
     //
     // note that the high part of operand (on the stack) is undefined
     //
     // (param offset_bytes:i16) (operand heap_addr:i64) -> f32
-    heap_load_f32,
+    memory_load_f32,
 
     // storing heap memory
-    heap_store_i64, // (param offset_bytes:i16) (operand heap_addr:i64 value:i64) -> ()
-    heap_store_i32, // (param offset_bytes:i16) (operand heap_addr:i64 value:i32) -> ()
-    heap_store_i16, // (param offset_bytes:i16) (operand heap_addr:i64 value:i32) -> ()
-    heap_store_i8,  // (param offset_bytes:i16) (operand heap_addr:i64 value:i32) -> ()
-    heap_store_f64, // (param offset_bytes:i16) (operand heap_addr:i64 value:f64) -> ()
-    heap_store_f32, // (param offset_bytes:i16) (operand heap_addr:i64 value:f32) -> ()
+    memory_store_i64, // (param offset_bytes:i16) (operand heap_addr:i64 value:i64) -> ()
+    memory_store_i32, // (param offset_bytes:i16) (operand heap_addr:i64 value:i32) -> ()
+    memory_store_i16, // (param offset_bytes:i16) (operand heap_addr:i64 value:i32) -> ()
+    memory_store_i8,  // (param offset_bytes:i16) (operand heap_addr:i64 value:i32) -> ()
+    memory_store_f64, // (param offset_bytes:i16) (operand heap_addr:i64 value:f64) -> ()
+    memory_store_f32, // (param offset_bytes:i16) (operand heap_addr:i64 value:f32) -> ()
 
     // loading heap memory with boundary checking
     //     heap_load_bound_i64,   // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> i64
@@ -434,23 +434,23 @@ pub enum Opcode {
     // fill the specified memory region with the specified (i8) value
     //
     // () (operand addr:i64 value:i8 count:i64) -> ()
-    heap_fill = 0x0240,
+    memory_fill = 0x0240,
 
     // copy the specified memory region to the specified location
     //
     // () (operand dst_addr:i64 src_addr:i64 count:i64) -> ()
-    heap_copy,
+    memory_copy,
 
     // return the amount of pages of the heap, by default the size of page
     // is MEMORY_PAGE_SIZE_IN_BYTES (64 KiB).
     //
     // () -> pages:i64
-    heap_capacity,
+    memory_capacity,
 
     // increase or decrease the heap size and return the new capacity (in pages)
     //
     // () (operand pages:i64) -> new_pages:i64
-    heap_resize,
+    memory_resize,
 
     // truncate i64 to i32
     //
@@ -937,7 +937,7 @@ pub enum Opcode {
     // its parameters are not 'local variables' (the values of parameters are placed on the
     // operand stack), and they cannot be accessed with 'local_load/local_store' instructions.
     //
-    // (param type_index:i32, local_list_index:i32)
+    // (param type_index:i32, local_variable_list_index:i32)
     block,
 
     // the 'break' instruction is similar to the 'end' instruction, it is
@@ -1110,12 +1110,12 @@ pub enum Opcode {
     // structures, and since there are branches within its scope, it should not
     // have input parameters as well as local variables, although it should have
     // return values. therefore this instruction has parameter 'type_index' and
-    // not 'local_list_index'.
+    // not 'local_variable_list_index'.
     //
     // note that the stack frame created by this instructon still has the local
-    // varialbe area (it is just empty) even though no 'local_list_index' is specified.
+    // varialbe area (it is just empty) even though no 'local_variable_list_index' is specified.
     //
-    // (param type_index:i32, local_list_index:i32, next_inst_offset:i32)
+    // (param type_index:i32, local_variable_list_index:i32, next_inst_offset:i32)
     block_alt,
 
     // an instruction to jump out of the current 'block_alt' scope.
@@ -1153,9 +1153,9 @@ pub enum Opcode {
     // create a block, it should not have parameters and return values (i.e., the
     // type is `()->()`), so the instruction has no 'type_index' parameter.
     // However, the instruction still supports local variables, so there is a
-    // parameter 'local_list_index'.
+    // parameter 'local_variable_list_index'.
     //
-    // (param local_list_index:i32, next_inst_offset:i32)
+    // (param local_variable_list_index:i32, next_inst_offset:i32)
     block_nez,
 
     // the 'break_nez' and 'recur_nez' instructions are used to optimize the 'break'
@@ -1561,7 +1561,7 @@ pub enum Opcode {
     // put the function public index to stack
     //
     // (param function_public_index:i32) -> i32
-    pub_index_function,
+    get_function,
 
     // terminate VM
     //
@@ -1595,7 +1595,7 @@ pub enum Opcode {
     host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
     host_addr_data,         // (param offset_bytes:i16 data_public_index:i32) -> i64
     host_addr_data_extend,  // (param data_public_index:i32) (operand offset_bytes:i64) -> i64
-    host_addr_heap,         // (param offset_bytes:i16) (operand heap_addr:i64) -> i64
+    host_addr_memory,       // (param offset_bytes:i16) (operand heap_addr:i64) -> i64
 
     // this instruction is used to create a pointer to a callback function
     // for an external C function.
@@ -1613,12 +1613,12 @@ pub enum Opcode {
     // copy data from VM heap to host memory
     //
     // () (operand dst_pointer:i64 src_addr:i64 count:i64) -> ()
-    host_copy_heap_to_memory,
+    host_copy_from_memory,
 
     // copy data from host memory to VM heap
     //
     // () (operand dst_addr:i64 src_pointer:i64 count:i64) -> ()
-    host_copy_memory_to_heap,
+    host_copy_to_memory,
 
     // copy data between host memory
     // this is a rather strange instruction because it operates on
@@ -1627,7 +1627,7 @@ pub enum Opcode {
     // external functions.
     //
     // () (operand dst_pointer:i64 src_pointer:i64 count:i64) -> ()
-    host_memory_copy,
+    host_external_memory_copy,
     // OTHER OPCODES:
     //
     // (addr, value) -> old_value
@@ -1739,27 +1739,27 @@ impl Opcode {
             Opcode::local_store_extend_f64 => "local_store_extend_f64",
             Opcode::local_store_extend_f32 => "local_store_extend_f32",
             //
-            Opcode::heap_load_i64 => "heap_load_i64",
-            Opcode::heap_load_i32_s => "heap_load_i32_s",
-            Opcode::heap_load_i32_u => "heap_load_i32_u",
-            Opcode::heap_load_i16_s => "heap_load_i16_s",
-            Opcode::heap_load_i16_u => "heap_load_i16_u",
-            Opcode::heap_load_i8_s => "heap_load_i8_s",
-            Opcode::heap_load_i8_u => "heap_load_i8_u",
-            Opcode::heap_load_f64 => "heap_load_f64",
-            Opcode::heap_load_f32 => "heap_load_f32",
+            Opcode::memory_load_i64 => "memory_load_i64",
+            Opcode::memory_load_i32_s => "memory_load_i32_s",
+            Opcode::memory_load_i32_u => "memory_load_i32_u",
+            Opcode::memory_load_i16_s => "memory_load_i16_s",
+            Opcode::memory_load_i16_u => "memory_load_i16_u",
+            Opcode::memory_load_i8_s => "memory_load_i8_s",
+            Opcode::memory_load_i8_u => "memory_load_i8_u",
+            Opcode::memory_load_f64 => "memory_load_f64",
+            Opcode::memory_load_f32 => "memory_load_f32",
             //
-            Opcode::heap_store_i64 => "heap_store_i64",
-            Opcode::heap_store_i32 => "heap_store_i32",
-            Opcode::heap_store_i16 => "heap_store_i16",
-            Opcode::heap_store_i8 => "heap_store_i8",
-            Opcode::heap_store_f64 => "heap_store_f64",
-            Opcode::heap_store_f32 => "heap_store_f32",
+            Opcode::memory_store_i64 => "memory_store_i64",
+            Opcode::memory_store_i32 => "memory_store_i32",
+            Opcode::memory_store_i16 => "memory_store_i16",
+            Opcode::memory_store_i8 => "memory_store_i8",
+            Opcode::memory_store_f64 => "memory_store_f64",
+            Opcode::memory_store_f32 => "memory_store_f32",
             //
-            Opcode::heap_fill => "heap_fill",
-            Opcode::heap_copy => "heap_copy",
-            Opcode::heap_capacity => "heap_capacity",
-            Opcode::heap_resize => "heap_resize",
+            Opcode::memory_fill => "memory_fill",
+            Opcode::memory_copy => "memory_copy",
+            Opcode::memory_capacity => "memory_capacity",
+            Opcode::memory_resize => "memory_resize",
             //
             Opcode::truncate_i64_to_i32 => "truncate_i64_to_i32",
             Opcode::extend_i32_s_to_i64 => "extend_i32_s_to_i64",
@@ -1954,7 +1954,7 @@ impl Opcode {
             Opcode::syscall => "syscall",
             Opcode::extcall => "extcall",
             //
-            Opcode::pub_index_function => "pub_index_function",
+            Opcode::get_function => "get_function",
             //
             Opcode::panic => "panic",
             //
@@ -1962,10 +1962,10 @@ impl Opcode {
             Opcode::host_addr_local_extend => "host_addr_local_extend",
             Opcode::host_addr_data => "host_addr_data",
             Opcode::host_addr_data_extend => "host_addr_data_extend",
-            Opcode::host_addr_heap => "host_addr_heap",
-            Opcode::host_copy_heap_to_memory => "host_copy_heap_to_memory",
-            Opcode::host_copy_memory_to_heap => "host_copy_memory_to_heap",
-            Opcode::host_memory_copy => "host_memory_copy",
+            Opcode::host_addr_memory => "host_addr_memory",
+            Opcode::host_copy_from_memory => "host_copy_from_memory",
+            Opcode::host_copy_to_memory => "host_copy_to_memory",
+            Opcode::host_external_memory_copy => "host_external_memory_copy",
             Opcode::host_addr_function => "host_addr_function",
         }
     }
@@ -2045,27 +2045,27 @@ impl Opcode {
             "local_store_extend_f64" => Opcode::local_store_extend_f64,
             "local_store_extend_f32" => Opcode::local_store_extend_f32,
             //
-            "heap_load_i64" => Opcode::heap_load_i64,
-            "heap_load_i32_s" => Opcode::heap_load_i32_s,
-            "heap_load_i32_u" => Opcode::heap_load_i32_u,
-            "heap_load_i16_s" => Opcode::heap_load_i16_s,
-            "heap_load_i16_u" => Opcode::heap_load_i16_u,
-            "heap_load_i8_s" => Opcode::heap_load_i8_s,
-            "heap_load_i8_u" => Opcode::heap_load_i8_u,
-            "heap_load_f64" => Opcode::heap_load_f64,
-            "heap_load_f32" => Opcode::heap_load_f32,
+            "memory_load_i64" => Opcode::memory_load_i64,
+            "memory_load_i32_s" => Opcode::memory_load_i32_s,
+            "memory_load_i32_u" => Opcode::memory_load_i32_u,
+            "memory_load_i16_s" => Opcode::memory_load_i16_s,
+            "memory_load_i16_u" => Opcode::memory_load_i16_u,
+            "memory_load_i8_s" => Opcode::memory_load_i8_s,
+            "memory_load_i8_u" => Opcode::memory_load_i8_u,
+            "memory_load_f64" => Opcode::memory_load_f64,
+            "memory_load_f32" => Opcode::memory_load_f32,
             //
-            "heap_store_i64" => Opcode::heap_store_i64,
-            "heap_store_i32" => Opcode::heap_store_i32,
-            "heap_store_i16" => Opcode::heap_store_i16,
-            "heap_store_i8" => Opcode::heap_store_i8,
-            "heap_store_f64" => Opcode::heap_store_f64,
-            "heap_store_f32" => Opcode::heap_store_f32,
+            "memory_store_i64" => Opcode::memory_store_i64,
+            "memory_store_i32" => Opcode::memory_store_i32,
+            "memory_store_i16" => Opcode::memory_store_i16,
+            "memory_store_i8" => Opcode::memory_store_i8,
+            "memory_store_f64" => Opcode::memory_store_f64,
+            "memory_store_f32" => Opcode::memory_store_f32,
             //
-            "heap_fill" => Opcode::heap_fill,
-            "heap_copy" => Opcode::heap_copy,
-            "heap_capacity" => Opcode::heap_capacity,
-            "heap_resize" => Opcode::heap_resize,
+            "memory_fill" => Opcode::memory_fill,
+            "memory_copy" => Opcode::memory_copy,
+            "memory_capacity" => Opcode::memory_capacity,
+            "memory_resize" => Opcode::memory_resize,
             //
             "truncate_i64_to_i32" => Opcode::truncate_i64_to_i32,
             "extend_i32_s_to_i64" => Opcode::extend_i32_s_to_i64,
@@ -2260,7 +2260,7 @@ impl Opcode {
             "syscall" => Opcode::syscall,
             "extcall" => Opcode::extcall,
             //
-            "pub_index_function" => Opcode::pub_index_function,
+            "get_function" => Opcode::get_function,
             //
             "panic" => Opcode::panic,
             //
@@ -2268,10 +2268,10 @@ impl Opcode {
             "host_addr_local_extend" => Opcode::host_addr_local_extend,
             "host_addr_data" => Opcode::host_addr_data,
             "host_addr_data_extend" => Opcode::host_addr_data_extend,
-            "host_addr_heap" => Opcode::host_addr_heap,
-            "host_copy_heap_to_memory" => Opcode::host_copy_heap_to_memory,
-            "host_copy_memory_to_heap" => Opcode::host_copy_memory_to_heap,
-            "host_memory_copy" => Opcode::host_memory_copy,
+            "host_addr_memory" => Opcode::host_addr_memory,
+            "host_copy_from_memory" => Opcode::host_copy_from_memory,
+            "host_copy_to_memory" => Opcode::host_copy_to_memory,
+            "host_external_memory_copy" => Opcode::host_external_memory_copy,
             "host_addr_function" => Opcode::host_addr_function,
             //
             _ => panic!("Unknown instruction \"{}\".", name),
