@@ -257,10 +257,9 @@ pub enum ModuleDependencyType {
     //
     // the value of this type is a path to a folder, e.g.
     //
-    // {
-    //   name: "..."
-    //   value: Local("~/myprojects/hello")
-    // }
+    // modules: [
+    //   "module_name": module::Local("~/myprojects/hello")
+    // ]
     //
     // because of the lack of version information on the local file system,
     // this type of dependency can only be used as local development and testing.
@@ -274,18 +273,17 @@ pub enum ModuleDependencyType {
 
     // module from a remote GIT repository
     //
-    // the value of this type contains the Git repository url, commit
+    // the value of this type contains the Git repository url, commit (hash)
     // and path, e.g.
     //
-    // {
-    //   name: "..."
-    //   value: Remote(
+    // modules: [
+    //   "module_name": module::Remote(
     //     {
     //       url:"https://github.com/hemashushu/xiaoxuan-core-extension.git",
-    //       revision="commit/tag",
+    //       revision="commit or tag",
     //       path="/modules/sha2"
     //     })
-    // }
+    // ]
     //
     // when a project is compiled or run, the remote resource is
     // downloaded first, and then cached in a local directory.
@@ -303,15 +301,16 @@ pub enum ModuleDependencyType {
     // users can also customize a different location or add
     // multiple repository in the runtime settings.
     //
-    // the value of this type is:
-    // {
-    //   name: "..."
-    //   value: Share(
+    // the value of this type contains the version and an optional
+    // repository name, e.g.
+    //
+    // modules:[
+    //   "module_name": module::Share(
     //     {
     //       repository_name: "...",
     //       version: {major:M, minor:N}
     //     })
-    // }
+    // ]
     //
     // this type of module is downloaded and cached to a local directory, e.g.
     //
@@ -328,12 +327,12 @@ pub enum ModuleDependencyType {
     //
     // "{/usr/lib, C:/Program Fiels}/anc/VER/runtime/modules/modname"
     //
-    // the value of this type is:
+    // there is no value of this type because the module name is specified
+    // in the configuration, e.g.
     //
-    // {
-    //   name: "..."
-    //   value: Runtime
-    // }
+    // modules:[
+    //   "module_name": module::Runtime
+    // ]
     Runtime,
 }
 
@@ -345,42 +344,42 @@ pub enum ExternalLibraryDependencyType {
     //
     // the value of this type is a path to a file (with library so-name), e.g.
     //
-    // {
-    //   name: "world"
-    //   value: Local("~/myprojects/hello/lib/libworld.so.1")
-    // }
+    // libraries: [
+    //    "lib_name": library::Local("~/myprojects/hello/lib/libworld.so.1")
+    // ]
     //
-    // see also `ModuleDependentType::Local`
+    // notes that the format of "so-name" is "libfoo.so.MAJOR_VERSION_NUMBER",
+    // do not confuse it with the "real-name" (e.g. "libfoo.so.MAJOR.MINOR") and the
+    // "link name" (e.g. "libfoo.so").
     Local = 0x0,
 
     // library from a remote GIT repository
     //
     // e.g.
     //
-    // {
-    //   name: "lz4"
-    //   value: Remote(
+    // libraries: [
+    //   "lz4": library::Remote(
     //     {
     //       url:"https://github.com/hemashushu/xiaoxuan-core-extension.git",
     //       revision="commit/tag",
     //       path="/libraries/lz4/lib/liblz4.so.1"
     //     })
-    // }
+    // ]
     //
     // see also `ModuleDependentType::Remote`
     Remote,
 
     // library from the central repository
     //
-    // the value of this type is:
-    // {
-    //   name: "zlib"
-    //   value: Share(
+    // an example of this type:
+    //
+    // libraries: [
+    //   "zlib": library::Share(
     //     {
     //       repository_name: "...",
     //       version: {major:M, minor:N}
     //     })
-    // }
+    // ]
     //
     // this type of library is downloaded and cached to a local directory, e.g.
     // "{/usr/lib, ~/.local/lib}/anc/VER/libraries/libname/VER"
@@ -392,21 +391,19 @@ pub enum ExternalLibraryDependencyType {
     //
     // "{/usr/lib, C:/Program Fiels}/anc/VER/libraries/libname/lib/libfile.so"
     //
-    // {
-    //   name: "zstd"
-    //   value: Runtime
-    // }
+    // libraries: [
+    //   "zstd": library::Runtime
+    // ]
     Runtime,
 
     // library from system
     //
-    // the value of this type is `LIB_SO_NAME`
+    // the value of this type is library so-name.
     //
     // e.g.
-    // {
-    //   name: "lz4"
-    //   value: System("liblz4.so.1")
-    // }
+    // libraries: [
+    //   "lz4": System("liblz4.so.1")
+    // ]
     System,
 }
 
@@ -477,7 +474,10 @@ pub enum DependencyCondition {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "local")]
 pub struct DependencyLocal {
-    pub path: String, // the path to the module project or the *.so.N file
+    /// The module's path relative to the application (or module project) folder.
+    /// It could also be a path of the file "*.so.VERSION" relative to the application
+    /// if the dependency is external library.
+    pub path: String,
     pub values: Option<HashMap<String, PropertyValue>>,
     pub condition: Option<DependencyCondition>,
 }
