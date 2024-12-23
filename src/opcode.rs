@@ -306,7 +306,6 @@ pub enum Opcode {
     //
     // Of course, if there is only one operand on the stack, the
     // return value of this function is NULL.
-
     local_load_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
     local_load_extend_i32_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
     local_load_extend_i32_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
@@ -374,7 +373,7 @@ pub enum Opcode {
     data_store_i64, // (param offset_bytes:i16 data_public_index:i32) (operand value:i64) -> (remain_values)
     data_store_i32, // (param offset_bytes:i16 data_public_index:i32) (operand value:i32) -> (remain_values)
     data_store_i16, // (param offset_bytes:i16 data_public_index:i32) (operand value:i32) -> (remain_values)
-    data_store_i8,  // (param offset_bytes:i16 data_public_index:i32) (operand value:i32) -> (remain_values)
+    data_store_i8, // (param offset_bytes:i16 data_public_index:i32) (operand value:i32) -> (remain_values)
     data_store_f64, // (param offset_bytes:i16 data_public_index:i32) (operand value:f64) -> (remain_values)
     data_store_f32, // (param offset_bytes:i16 data_public_index:i32) (operand value:f32) -> (remain_values)
 
@@ -428,7 +427,7 @@ pub enum Opcode {
     memory_store_i64, // (param offset_bytes:i16) (operand memory_address:i64 value:i64) -> (remain_values)
     memory_store_i32, // (param offset_bytes:i16) (operand memory_address:i64 value:i32) -> (remain_values)
     memory_store_i16, // (param offset_bytes:i16) (operand memory_address:i64 value:i32) -> (remain_values)
-    memory_store_i8,  // (param offset_bytes:i16) (operand memory_address:i64 value:i32) -> (remain_values)
+    memory_store_i8, // (param offset_bytes:i16) (operand memory_address:i64 value:i32) -> (remain_values)
     memory_store_f64, // (param offset_bytes:i16) (operand memory_address:i64 value:f64) -> (remain_values)
     memory_store_f32, // (param offset_bytes:i16) (operand memory_address:i64 value:f32) -> (remain_values)
 
@@ -1175,52 +1174,6 @@ pub enum Opcode {
     // (param local_variable_list_index:i32, next_inst_offset:i32) NO_RETURN
     block_nez,
 
-    // DEPRECATED::
-    // // the 'break_nez' and 'recur_nez' instructions are used to optimize the 'break'
-    // // and 'recur' with conditions.
-    // //
-    // // example of 'break_nez':
-    // //
-    // // ```rust
-    // // let i = loop {
-    // //   ...
-    // //   if ... break 100;
-    // //   ...
-    // // }
-    // // ```
-    // //
-    // // the unoptimized bytecode is:
-    // //
-    // // ```bytecode
-    // // 0d0000 block 0
-    // // 0d0008   ...             ;; <-------------\
-    // //          ...             ;;               |
-    // // 0d0100   block_nez(0,28) ;; ----\         |
-    // // 0d0112     imm_i32(100)  ;;     |         |
-    // // 0d0120     break(1,88)   ;; ----|----\    |
-    // // 0d0128   end             ;; <---/    |    |
-    // //          ...             ;;          |    |
-    // // 0d0200   recur(0,192)    ;; ---------|----/
-    // // 0d0208 end               ;;          |
-    // // 0d0210 ...               ;; <--------/
-    // // ```
-    // //
-    // // optimized with instruction 'break_nez':
-    // //
-    // // ```bytecode
-    // // 0d0000 block(0)
-    // // 0d0008   ...             ;; <-------------\
-    // //          ...             ;;               |
-    // // 0d0100   imm_i32(100)    ;;               |
-    // //          ...             ;;               |
-    // // 0d0120   break_nez(0,88) ;; ---------\    |
-    // // 0d0128   local_store..   ;; drop 100 |    |
-    // //          ...             ;;          |    |
-    // // 0d0200   recur(0,192)    ;; ---------|----/
-    // // 0d0208 end               ;;          |
-    // // 0d0210 ...               ;; <--------/
-    // // ```
-
     // TCO (Tail Call Optimization)
     // ----------------------------
     // instruction 'recur' is also used to implement the TCO (Tail Call Optimization).
@@ -1273,20 +1226,6 @@ pub enum Opcode {
     //             \-----/            \-----/            \-----/        |   \-----/
     //   6 <------------------------------------------------------------/
     //
-    // the instruction 'recur_nez' can be used to further optimized the call path:
-    //
-    // (0,3)--\
-    //        |    /-----\
-    //        \--> | +   | <----\  <----\  <----\
-    //             |=====|      |       |       |
-    //             | --> | --\  |       |       |
-    //        /--- | <-- | <-/  |       |       |
-    //        |    |=====|      |       |       |
-    //        |    | --> | -----/  -----/  -----/
-    //        |    |     | (3,2)  (5,1)  (6,0)
-    //        |    \-----/
-    //   6 <--/
-    //
     // what is shown above is TCO (tail call optimization), this optimization saves us from
     // creating and destroying call stack frames multiple times, which saves resources
     // to improve program efficiency.
@@ -1333,12 +1272,6 @@ pub enum Opcode {
     //     }
     // }
     // ```
-
-    // DEPRECATED::
-    // // (param reversed_index:i16, next_inst_offset:i32)
-    // break_nez,
-    // // (param reversed_index:i16, start_inst_offset:i32)
-    // recur_nez,
 
     // control flow structures and instructions
     // ----------------------------------------
@@ -1643,7 +1576,6 @@ pub enum Opcode {
     //
     // () (operand dst_pointer:i64 src_pointer:i64 count:i64) -> ()
     host_external_memory_copy,
-
     // OTHER OPCODES:
     //
     // (addr, value) -> old_value
@@ -1961,8 +1893,6 @@ impl Opcode {
             Opcode::block_alt => "block_alt",
             Opcode::break_alt => "break_alt",
             Opcode::block_nez => "block_nez",
-            // Opcode::break_nez => "break_nez",
-            // Opcode::recur_nez => "recur_nez",
             //
             Opcode::call => "call",
             Opcode::dyncall => "dyncall",
@@ -2267,8 +2197,6 @@ impl Opcode {
             "block_alt" => Opcode::block_alt,
             "break_alt" => Opcode::break_alt,
             "block_nez" => Opcode::block_nez,
-            // "break_nez" => Opcode::break_nez,
-            // "recur_nez" => Opcode::recur_nez,
             //
             "call" => Opcode::call,
             "dyncall" => Opcode::dyncall,

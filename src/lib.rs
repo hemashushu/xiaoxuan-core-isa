@@ -373,10 +373,12 @@ pub enum ModuleDependencyType {
 pub enum ExternalLibraryDependencyType {
     // library from the local file system
     //
+    // the dependency name is the library's soname removes "lib" prefix and
+    // ".so.N" suffix.
     // the value of this type is a path to a file (with library so-name), e.g.
     //
     // libraries: [
-    //    "lib_name": library::Local("~/myprojects/hello/lib/libworld.so.1")
+    //    "hello": library::Local("~/myprojects/hello/lib/libhello.so.1")
     // ]
     //
     // notes that the format of "so-name" is "libfoo.so.MAJOR_VERSION_NUMBER",
@@ -429,7 +431,8 @@ pub enum ExternalLibraryDependencyType {
 
     // library from system
     //
-    // the value of this type is library so-name.
+    // the dependency name is the library's soname removes "lib" prefix and
+    // ".so.N" suffix, e.g. "lz4", and the value is library's soname, e.g. "liblz4.so.1".
     //
     // e.g.
     // libraries: [
