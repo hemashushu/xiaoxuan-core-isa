@@ -49,10 +49,11 @@ pub const IMAGE_FORMAT_MINOR_VERSION: u16 = 0;
 // for applications:
 //
 // every application declares a desired runtime version, which can only be run
-// when the major and minor versions are identical. in short:
+// when the major version is identical and the runtime minor version is greater than
+// or equal to the declaration. in short:
 //
 // - app required runtime version major == runtime version major
-// - app required runtime version minor == runtime version minor
+// - app required runtime version minor <= runtime version minor
 //
 // for shared modules:
 //
@@ -459,6 +460,10 @@ pub enum ModuleDependency {
     #[serde(rename = "current")]
     Current,
 }
+
+// The name of module itself in the import module list of
+// object file or the shared module.
+pub const SELF_REFERENCE_MODULE_NAME:&'static str = "module";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "library")]
