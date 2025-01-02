@@ -12,6 +12,29 @@ use serde::{Deserialize, Serialize};
 
 pub const RUNTIME_CODE_NAME: &[u8; 6] = b"Selina"; // is also my lovely daughter's name (XiaoXuan for zh-Hans) :D
 
+// About Runtime Edition
+// ---------------------
+//
+// Runtime editions are used to represent mutually incompatible generations,
+// meaning different editions may have different syntax and features.
+//
+// An application and module must specify a runtime edition. Only when the
+// specified edition matches the actual runtime edition exactly can the application
+// and unit tests run.
+//
+// Note that an edition is different from a version number. Editions cannot be compared,
+// nor do they have backward compatibility. For example, a runtime with edition "2028"
+// cannot run applications with edition "2025" or "2030".
+//
+// If the edition of a module is inconsistent with the application's edition, the compiler
+// will still attempt to compile it but will only use the edition specified by the application
+// (i.e., the compiler will ignore the edition declared by the module). Note that this does
+// not guarantee successful compilation. Application developers should check for updates to
+// dependent modules and try to keep the module's edition consistent with the application's.
+pub const RUNTIME_EDITION: &[u8;4] = b"2025";
+
+// Semantic Versioning
+// - https://semver.org/
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct EffectiveVersion {
     pub major: u16,
@@ -30,50 +53,20 @@ impl Display for EffectiveVersion {
     }
 }
 
-// Semantic Versioning
-// - https://semver.org/
-//
-// an application will only run if its required major and minor
-// versions match the current runtime version strictly.
-pub const RUNTIME_MAJOR_VERSION: u16 = 1;
-pub const RUNTIME_MINOR_VERSION: u16 = 0;
-pub const RUNTIME_PATCH_VERSION: u16 = 0;
+// pub const RUNTIME_MAJOR_VERSION: u16 = 1;
+// pub const RUNTIME_MINOR_VERSION: u16 = 0;
+// pub const RUNTIME_PATCH_VERSION: u16 = 0;
 
 // the max version number the current runtime supported
 pub const IMAGE_FORMAT_MAJOR_VERSION: u16 = 1;
 pub const IMAGE_FORMAT_MINOR_VERSION: u16 = 0;
 
-// the relationship between the version of application, shared modules and runtime
-// ----------------------------------------------------------------------------
+// About the Version of Shared Modules
+// -----------------------------------
 //
-// for applications:
-//
-// every application declares a desired runtime version, which can only be run
-// when the major version is identical and the runtime minor version is greater than
-// or equal to the declaration. in short:
-//
-// - app required runtime version major == runtime version major
-// - app required runtime version minor <= runtime version minor
-//
-// for shared modules:
-//
-// shared modules do not declare desired runtime version, since it is
-// not a standalone executable module.
-// when a shared module is referenced (as dependency) by other
-// application, it will be compiled to the same runtime version as the main module requires.
-//
-// - shared module compiled version major == app required runtime version major
-// - shared module compiled version minor == app required runtime version minor
-//
-// dependencies
-// ------------
-//
-// a application (or shared module) may depend on one or more other shared modules,
-// when a application references a shared module, it is necessary to declare the
-// major and minor version of the shared module.
-//
-// - dependency declare version major == shared module version major
-// - dependency declare version minor == shared module version minor
+// An application (or shared module) may depend on one or more other shared modules,
+// when an application (or shared module) references a shared module, it is necessary
+// to declare the major and minor version of the shared module.
 //
 // version conflicts
 // -----------------
@@ -83,8 +76,8 @@ pub const IMAGE_FORMAT_MINOR_VERSION: u16 = 0;
 // will complain. However, if the major version numbers are the same, the
 // highest minor version wil be selected.
 //
-// Note that this implies that in the actual application runtime, the minor
-// version of a module might be higher than what the application explicitly
+// Note that this implies that in the actual application running, the minor
+// version of a module might be higher than what the application
 // declares. This is permissible because minor version updates are expected to
 // maintain backward compatibility.
 //
@@ -97,6 +90,7 @@ pub const IMAGE_FORMAT_MINOR_VERSION: u16 = 0;
 //
 // zero major version
 // ------------------
+//
 // When a shared module is in beta stage, the major version number can
 // be set to zero.
 // A zero major version indicates that each minor version is incompatible. If an
