@@ -10,8 +10,6 @@ use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
-pub const RUNTIME_CODE_NAME: &[u8; 6] = b"Selina"; // is also my lovely daughter's name (XiaoXuan for zh-Hans) :D
-
 // About Runtime Edition
 // ---------------------
 //
@@ -31,7 +29,7 @@ pub const RUNTIME_CODE_NAME: &[u8; 6] = b"Selina"; // is also my lovely daughter
 // (i.e., the compiler will ignore the edition declared by the module). Note that this does
 // not guarantee successful compilation. Application developers should check for updates to
 // dependent modules and try to keep the module's edition consistent with the application's.
-pub const RUNTIME_EDITION: &[u8;4] = b"2025";
+pub const RUNTIME_EDITION: &[u8;8] = b"2025\0\0\0\0";
 
 // Semantic Versioning
 // - https://semver.org/
@@ -260,6 +258,70 @@ impl ForeignValue {
     }
 }
 
+// Some pathes
+// -----------
+//
+// the user ANC HOME path, managed by unprivileged user.
+//
+// default: `~/.local/lib/anc`
+//
+// - builtin modules path:
+//   `~/.local/lib/anc/EDITION/runtime/modules`
+// - builtin libraries path:
+//   `~/.local/lib/anc/EDITION/runtime/libraries
+// - system modules path:
+//   `~/.local/lib/anc/EDITION/modules`
+// - system libraries path:
+//   `~/.local/lib/anc/EDITION/libraries`
+//
+// the global ANC HOME path, managed by root user.
+//
+// default: `/usr/local/lib/anc`
+//
+// - builtin modules path:
+//   `/usr/local/lib/EDITION/runtime/modules`
+// - builtin libraries path:
+//   `/usr/local/lib/EDITION/runtime/libraries
+// - system modules path:
+//   `/usr/local/lib/EDITION/modules`
+// - system libraries path:
+//   `/usr/local/lib/EDITION/libraries`
+//
+// the system ANC HOME path, managed by system package manager.
+//
+// default: `/usr/lib/anc`
+//
+// - builtin modules path:
+//   `/usr/lib/anc/EDITION/runtime/modules`
+// - builtin libraries path:
+//   `/usr/lib/anc/EDITION/runtime/libraries
+// - system modules path:
+//   `/usr/lib/anc/EDITION/modules`
+// - system libraries path:
+//   `/usr/lib/anc/EDITION/libraries`
+//
+// Examples:
+//
+// - builtin module:
+//   `BUILTIN_MODULE_PATH/http-client/{src, tests, output}`
+// - builtin library:
+//   `BUILTIN_LIBRARY_PATH/lz4/{src, lib, include}`
+// - general module:
+//   `MODULE_PATH/foo/1.0.1/{src, tests, output}`
+// - general library:
+//   `LIBRARY_PATH/bar/1.0.2/{src, lib, include}`
+//
+// other pathes:
+//
+// - cache, for the remote applications and modules
+//   `/tmp/anc`
+// - configuration files
+//   - `RUNTIME/config.ason`
+//   - `/etc/anc/config.ason`
+//   - `~/.config/anc/config.ason`
+// - launcher
+//   `ANC_HOME/launcher`
+
 /// the type of dependent shared modules
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -299,8 +361,8 @@ pub enum ModuleDependencyType {
     // when a project is compiled or run, the remote resource is
     // downloaded first, and then cached in a local directory.
     //
-    // note that the normal HTTP web service is not suitable for
-    // remote modules bacause of the lack of version information.
+    // note that the normal HTTP web service is **NOT** suitable for
+    // remote modules bacause of the lack of update information.
     Remote,
 
     // module from the central repository
@@ -325,7 +387,7 @@ pub enum ModuleDependencyType {
     //
     // this type of module is downloaded and cached to a local directory, e.g.
     //
-    // "{/usr/lib, ~/.local/lib}/anc/VER/modules/modname/VER"
+    // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/modules/modname/VERSION"
     //
     // by default there are 2 central repositories:
     // - default
@@ -336,7 +398,7 @@ pub enum ModuleDependencyType {
     //
     // this type of module is located locally in a directory, e.g.
     //
-    // "{/usr/lib, C:/Program Fiels}/anc/VER/runtime/modules/modname"
+    // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/runtime/modules/modname"
     //
     // there is no value of this type because the module name is specified
     // in the configuration, e.g.
@@ -348,7 +410,8 @@ pub enum ModuleDependencyType {
 
     // this type is for assembler, linker and interpreter use only,
     // it represents the current module.
-    // users cannot configure modules of this type.
+    //
+    // users **CANNOT** configure modules of this type.
     //
     // modules:[
     //   "module": module::Current
@@ -410,14 +473,14 @@ pub enum ExternalLibraryDependencyType {
     // ]
     //
     // this type of library is downloaded and cached to a local directory, e.g.
-    // "{/usr/lib, ~/.local/lib}/anc/VER/libraries/libname/VER"
+    // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/libraries/libname/VERSION"
     Share,
 
     // library that comes with the runtime
     //
     // this type of module is located locally in a directory, e.g.
     //
-    // "{/usr/lib, C:/Program Fiels}/anc/VER/libraries/libname/lib/libfile.so"
+    // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/libraries/libname/lib/libfile.so"
     //
     // libraries: [
     //   "zstd": library::Runtime
