@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 // (i.e., the compiler will ignore the edition declared by the module). Note that this does
 // not guarantee successful compilation. Application developers should check for updates to
 // dependent modules and try to keep the module's edition consistent with the application's.
-pub const RUNTIME_EDITION: &[u8;8] = b"2025\0\0\0\0";
+pub const RUNTIME_EDITION: &[u8; 8] = b"2025\0\0\0\0";
 
 // Semantic Versioning
 // - https://semver.org/
@@ -258,70 +258,6 @@ impl ForeignValue {
     }
 }
 
-// Some pathes
-// -----------
-//
-// the user ANC HOME path, managed by unprivileged user.
-//
-// default: `~/.local/lib/anc`
-//
-// - builtin modules path:
-//   `~/.local/lib/anc/EDITION/runtime/modules`
-// - builtin libraries path:
-//   `~/.local/lib/anc/EDITION/runtime/libraries
-// - system modules path:
-//   `~/.local/lib/anc/EDITION/modules`
-// - system libraries path:
-//   `~/.local/lib/anc/EDITION/libraries`
-//
-// the global ANC HOME path, managed by root user.
-//
-// default: `/usr/local/lib/anc`
-//
-// - builtin modules path:
-//   `/usr/local/lib/EDITION/runtime/modules`
-// - builtin libraries path:
-//   `/usr/local/lib/EDITION/runtime/libraries
-// - system modules path:
-//   `/usr/local/lib/EDITION/modules`
-// - system libraries path:
-//   `/usr/local/lib/EDITION/libraries`
-//
-// the system ANC HOME path, managed by system package manager.
-//
-// default: `/usr/lib/anc`
-//
-// - builtin modules path:
-//   `/usr/lib/anc/EDITION/runtime/modules`
-// - builtin libraries path:
-//   `/usr/lib/anc/EDITION/runtime/libraries
-// - system modules path:
-//   `/usr/lib/anc/EDITION/modules`
-// - system libraries path:
-//   `/usr/lib/anc/EDITION/libraries`
-//
-// Examples:
-//
-// - builtin module:
-//   `BUILTIN_MODULE_PATH/http-client/{src, tests, output}`
-// - builtin library:
-//   `BUILTIN_LIBRARY_PATH/lz4/{src, lib, include}`
-// - general module:
-//   `MODULE_PATH/foo/1.0.1/{src, tests, output}`
-// - general library:
-//   `LIBRARY_PATH/bar/1.0.2/{src, lib, include}`
-//
-// other pathes:
-//
-// - cache, for the remote applications and modules
-//   `/tmp/anc`
-// - configuration files
-//   - `RUNTIME/config.ason`
-//   - `/etc/anc/config.ason`
-//   - `~/.config/anc/config.ason`
-// - launcher
-//   `ANC_HOME/launcher`
-
 /// the type of dependent shared modules
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -520,7 +456,7 @@ pub enum ModuleDependency {
 
 // The name of module itself in the import module list of
 // object file or the shared module.
-pub const SELF_REFERENCE_MODULE_NAME:&'static str = "module";
+pub const SELF_REFERENCE_MODULE_NAME: &'static str = "module";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "library")]
@@ -542,8 +478,72 @@ pub enum ExternalLibraryDependency {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(rename = "value")]
-pub enum PropertyValue {
+#[serde(rename = "local")]
+pub struct DependencyLocal {
+    /// The module's path relative to the application (or module project) folder.
+    /// It could also be a path of the file "*.so.VERSION" relative to the application
+    /// if the dependency is external library.
+    pub path: String,
+
+    /// the default value is []
+    #[serde(default)]
+    pub parameters: HashMap<String, ParameterValue>,
+
+    /// Optional
+    /// the default value is DependencyCondition::True
+    #[serde(default)]
+    pub condition: DependencyCondition,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(rename = "remote")]
+pub struct DependencyRemote {
+    /// Git repository URL, should be "https" protocol
+    pub url: String,
+
+    /// Git commit or tag
+    pub reversion: String,
+
+    /// sub-path
+    pub path: String,
+
+    /// Optional
+    /// the default value is []
+    #[serde(default)]
+    pub parameters: HashMap<String, ParameterValue>,
+
+    /// Optional
+    /// the default value is DependencyCondition::True
+    #[serde(default)]
+    pub condition: DependencyCondition,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(rename = "share")]
+pub struct DependencyShare {
+    /// Semver e.g. "1.0"
+    pub version: String,
+
+    /// Optional
+    /// the default value is []
+    #[serde(default)]
+    pub parameters: HashMap<String, ParameterValue>,
+
+    /// Optional
+    /// the default value is DependencyCondition::True
+    #[serde(default)]
+    pub condition: DependencyCondition,
+
+    /// Optional
+    /// The name of repository
+    /// the default value is ""
+    #[serde(default)]
+    pub repository: String,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(rename = "param")]
+pub enum ParameterValue {
     #[serde(rename = "string")]
     String(String),
 
@@ -553,6 +553,9 @@ pub enum PropertyValue {
     #[serde(rename = "bool")]
     Bool(bool),
 
+    #[serde(rename = "prop")]
+    Prop(/* property name */ String),
+
     #[serde(rename = "eval")]
     Eval(String),
 }
@@ -560,44 +563,26 @@ pub enum PropertyValue {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "cond")]
 pub enum DependencyCondition {
+    #[serde(rename = "true")]
+    True,
+
+    #[serde(rename = "false")]
+    False,
+
     #[serde(rename = "is_true")]
-    IsTrue(String),
+    IsTrue(/* property or constant name */ String),
 
     #[serde(rename = "is_false")]
-    IsFalse(String),
+    IsFalse(/* property or constant name */ String),
 
     #[serde(rename = "eval")]
-    Eval(String),
+    Eval(/* expression */ String),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(rename = "local")]
-pub struct DependencyLocal {
-    /// The module's path relative to the application (or module project) folder.
-    /// It could also be a path of the file "*.so.VERSION" relative to the application
-    /// if the dependency is external library.
-    pub path: String,
-    pub values: Option<HashMap<String, PropertyValue>>,
-    pub condition: Option<DependencyCondition>,
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(rename = "remote")]
-pub struct DependencyRemote {
-    pub url: String,
-    pub reversion: String, // commit or tag
-    pub path: String,
-    pub values: Option<HashMap<String, PropertyValue>>,
-    pub condition: Option<DependencyCondition>,
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(rename = "share")]
-pub struct DependencyShare {
-    pub repository: Option<String>, // the name of repository
-    pub version: String,            // e.g. "1.0"
-    pub values: Option<HashMap<String, PropertyValue>>,
-    pub condition: Option<DependencyCondition>,
+impl Default for DependencyCondition {
+    fn default() -> Self {
+        Self::True
+    }
 }
 
 impl Display for ExternalLibraryDependencyType {
@@ -653,6 +638,8 @@ impl Display for ExternalLibraryDependencyType {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use pretty_assertions::assert_eq;
 
     use crate::{
@@ -661,94 +648,141 @@ mod tests {
     };
 
     #[test]
-    fn test_serialize_module_dependency() {
+    fn test_serialize_dependency() {
         assert_eq!(
             ason::to_string(&ModuleDependency::Local(Box::new(DependencyLocal {
-                path: "~/myprojects/hello".to_owned(),
-                values: None,
-                condition: None
+                path: "~/projects/helloworld".to_owned(),
+                parameters: HashMap::default(),
+                condition: DependencyCondition::True
             })))
             .unwrap(),
             r#"module::local({
-    path: "~/myprojects/hello"
-    values: Option::None
-    condition: Option::None
+    path: "~/projects/helloworld"
+    parameters: [
+    ]
+    condition: cond::true
 })"#
         );
 
         assert_eq!(
             ason::to_string(&ModuleDependency::Remote(Box::new(DependencyRemote {
-                url: "https://github.com/hemashushu/xiaoxuan-core-extension.git".to_owned(),
+                url: "https://github.com/hemashushu/xiaoxuan-core-module.git".to_owned(),
                 reversion: "v1.0.0".to_owned(),
                 path: "/modules/sha2".to_owned(),
-                values: None,
-                condition: None,
+                parameters: HashMap::default(),
+                condition: DependencyCondition::False,
             })))
             .unwrap(),
             r#"module::remote({
-    url: "https://github.com/hemashushu/xiaoxuan-core-extension.git"
+    url: "https://github.com/hemashushu/xiaoxuan-core-module.git"
     reversion: "v1.0.0"
     path: "/modules/sha2"
-    values: Option::None
-    condition: Option::None
+    parameters: [
+    ]
+    condition: cond::false
 })"#
         );
 
         assert_eq!(
             ason::to_string(&ModuleDependency::Share(Box::new(DependencyShare {
-                repository: Option::Some("default".to_owned()),
-                version: "11.13".to_owned(),
-                values: None,
-                condition: Some(DependencyCondition::IsTrue("enable_me".to_owned()))
+                version: "2.3".to_owned(),
+                parameters: HashMap::default(),
+                condition: DependencyCondition::IsTrue("enable_abc".to_owned()),
+                repository: String::default(),
             })))
             .unwrap(),
             r#"module::share({
-    repository: Option::Some("default")
-    version: "11.13"
-    values: Option::None
-    condition: Option::Some(cond::is_true("enable_me"))
+    version: "2.3"
+    parameters: [
+    ]
+    condition: cond::is_true("enable_abc")
+    repository: ""
 })"#
         );
 
         assert_eq!(
-            ason::to_string(&ModuleDependency::Runtime).unwrap(),
-            r#"module::runtime"#
+            ason::to_string(&ModuleDependency::Share(Box::new(DependencyShare {
+                version: "11.13".to_owned(),
+                parameters: HashMap::default(),
+                condition: DependencyCondition::Eval("enable_abc && enable_xyz".to_owned()),
+                repository: "custom".to_owned(),
+            })))
+            .unwrap(),
+            r#"module::share({
+    version: "11.13"
+    parameters: [
+    ]
+    condition: cond::eval("enable_abc && enable_xyz")
+    repository: "custom"
+})"#
         );
     }
 
     #[test]
-    fn test_deserialize_external_library_dependency() {
-        let s0 = r#"library::share({
-            repository: Option::Some("default")
-            version: "17.19"
-        })"#;
-
-        let v0: ExternalLibraryDependency = ason::from_str(s0).unwrap();
+    fn test_deserialize_dependency() {
         assert_eq!(
-            v0,
-            ExternalLibraryDependency::Share(Box::new(DependencyShare {
-                repository: Option::Some("default".to_owned()),
-                version: "17.19".to_owned(),
-                values: None,
-                condition: None
+            ason::from_str::<ExternalLibraryDependency>(
+                r#"library::local({
+                path: "~/projects/helloworld/libabc.so.1"
+            })"#
+            )
+            .unwrap(),
+            ExternalLibraryDependency::Local(Box::new(DependencyLocal {
+                path: "~/projects/helloworld/libabc.so.1".to_owned(),
+                parameters: HashMap::default(),
+                condition: DependencyCondition::True
             }))
         );
 
-        let s1 = r#"library::remote({
-            url: "https://github.com/hemashushu/xiaoxuan-core-extension.git"
-            reversion: "v1.0.0"
-            path: "/libraries/lz4/lib/liblz4.so.1"
-            condition: Option::Some(cond::is_false("enable_me"))
-        })"#;
-        let v1: ExternalLibraryDependency = ason::from_str(s1).unwrap();
         assert_eq!(
-            v1,
+            ason::from_str::<ExternalLibraryDependency>(
+                r#"library::remote({
+                url: "https://github.com/hemashushu/xiaoxuan-core-extension.git"
+                reversion: "v1.0.0"
+                path: "/libraries/lz4/lib/liblz4.so.1"
+                condition: cond::false
+            })"#
+            )
+            .unwrap(),
             ExternalLibraryDependency::Remote(Box::new(DependencyRemote {
                 url: "https://github.com/hemashushu/xiaoxuan-core-extension.git".to_owned(),
                 reversion: "v1.0.0".to_owned(),
                 path: "/libraries/lz4/lib/liblz4.so.1".to_owned(),
-                values: None,
-                condition: Some(DependencyCondition::IsFalse("enable_me".to_owned()))
+                parameters: HashMap::default(),
+                condition: DependencyCondition::False
+            }))
+        );
+
+        assert_eq!(
+            ason::from_str::<ExternalLibraryDependency>(
+                r#"library::share({
+                version: "2.3"
+                condition: cond::is_true("enable_abc")
+            })"#
+            )
+            .unwrap(),
+            ExternalLibraryDependency::Share(Box::new(DependencyShare {
+                version: "2.3".to_owned(),
+                parameters: HashMap::default(),
+                condition: DependencyCondition::IsTrue("enable_abc".to_owned()),
+                repository: String::default(),
+            }))
+        );
+
+        assert_eq!(
+            ason::from_str::<ExternalLibraryDependency>(
+                r#"library::share({
+                version: "11.13"
+                condition: cond::is_true("enable_abc && enable_xyz")
+                repository: "custom"
+            })"#
+            )
+            .unwrap(),
+            ExternalLibraryDependency::Share(Box::new(DependencyShare {
+                version: "11.13".to_owned(),
+                parameters: HashMap::default(),
+                condition: DependencyCondition::IsTrue("enable_abc && enable_xyz".to_owned()),
+                repository: "custom".to_owned(),
             }))
         );
     }
