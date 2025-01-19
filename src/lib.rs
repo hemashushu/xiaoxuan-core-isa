@@ -40,6 +40,41 @@ pub struct EffectiveVersion {
     pub patch: u16,
 }
 
+// version conflicts
+// -----------------
+//
+// If a shared module appears multiple times in the dependency tree with
+// different versions and the major version numbers differ, the compiler
+// will complain. However, if the major version numbers are the same, the
+// highest minor version wil be selected.
+//
+// Note that this implies that in the actual application runtime, the minor
+// version of a module might be higher than what the application explicitly
+// declares. This is permissible because minor version updates are expected to
+// maintain backward compatibility.
+//
+// For instance, if an application depends on a module with version 1.4.0, the
+// actual runtime version of that module could be anywhere from 1.4.0 to 1.99.99.
+//
+// For the local and remote file-base shared modules and libraries,
+// because they lack version information, if their sources
+// (e.g., file paths or URLs) do not match, the compilation will fail.
+//
+// zero major version
+// ------------------
+// When a shared module is in beta stage, the major version number can
+// be set to zero.
+// A zero major version indicates that each minor version is incompatible. If an
+// application's dependency tree contains minor version inconsistencies in modules
+// with a zero major version, compilation will fail.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum VersionCompatibility {
+    Equals,
+    GreaterThan,
+    LessThan,
+    Conflict,
+}
+
 impl EffectiveVersion {
     pub fn new(major: u16, minor: u16, patch: u16) -> Self {
         Self {
@@ -60,11 +95,60 @@ impl EffectiveVersion {
         }
     }
 
+    /// "x.y.z"
+    pub fn from_str(version: &str) -> Self {
+        let nums = version
+            .split('.')
+            .map(
+                |item| item.parse::<u16>().unwrap(), /* u16::from_str_radix(item, 10).unwrap() */
+            )
+            .collect::<Vec<_>>();
+        assert!(nums.len() == 3);
+
+        Self {
+            major: nums[0],
+            minor: nums[1],
+            patch: nums[2],
+        }
+    }
+
     pub fn to_u64(&self) -> u64 {
         let mut value = self.major as u64;
         value = (value << 16) | self.minor as u64;
         value = (value << 16) | self.patch as u64;
         value
+    }
+
+    pub fn compatible(&self, other: &EffectiveVersion) -> VersionCompatibility {
+        if self.major != other.major {
+            // major differ
+            VersionCompatibility::Conflict
+        } else if self.major == 0 {
+            // zero major
+            if self.minor != other.minor {
+                // minor differ
+                VersionCompatibility::Conflict
+            } else if self.patch > other.patch {
+                VersionCompatibility::GreaterThan
+            } else if self.patch < other.patch {
+                VersionCompatibility::LessThan
+            } else {
+                VersionCompatibility::Equals
+            }
+        } else {
+            // normal major
+            if self.minor > other.minor {
+                VersionCompatibility::GreaterThan
+            } else if self.minor < other.minor {
+                VersionCompatibility::LessThan
+            } else if self.patch > other.patch {
+                VersionCompatibility::GreaterThan
+            } else if self.patch < other.patch {
+                VersionCompatibility::LessThan
+            } else {
+                VersionCompatibility::Equals
+            }
+        }
     }
 }
 
@@ -673,7 +757,7 @@ mod tests {
 
     use crate::{
         DependencyCondition, DependencyLocal, DependencyRemote, DependencyShare, EffectiveVersion,
-        ExternalLibraryDependency, ModuleDependency,
+        ExternalLibraryDependency, ModuleDependency, VersionCompatibility,
     };
 
     #[test]
@@ -687,9 +771,19 @@ mod tests {
         assert_eq!(v1.minor, 0x13);
         assert_eq!(v1.patch, 0x17);
 
+        let v2 = EffectiveVersion::from_str("11.13.17");
+        assert_eq!(v2.major, 11);
+        assert_eq!(v2.minor, 13);
+        assert_eq!(v2.patch, 17);
+    }
+
+    #[test]
+    fn test_effective_version_comparison() {
+        let v0 = EffectiveVersion::new(0x11, 0x13, 0x17);
+        let v1 = EffectiveVersion::new(0x11, 0x13, 0x17);
         let v2 = EffectiveVersion::new(0x13, 0x11, 0x7);
         let v3 = EffectiveVersion::new(0x11, 0x17, 0x13);
-        let v4 = EffectiveVersion::new(0x11, 0x7, 0x23);
+        let v4 = EffectiveVersion::new(0x11, 0x13, 0x23);
 
         // Eq
         assert!(v0 == v1);
@@ -700,7 +794,56 @@ mod tests {
         assert!(v0 <= v1);
         assert!(v0 < v2);
         assert!(v0 < v3);
-        assert!(v0 > v4);
+        assert!(v0 < v4);
+    }
+
+    #[test]
+    fn test_effective_version_competibility() {
+        assert_eq!(
+            EffectiveVersion::from_str("1.2.3").compatible(&EffectiveVersion::from_str("1.2.3")),
+            VersionCompatibility::Equals
+        );
+
+        assert_eq!(
+            EffectiveVersion::from_str("1.2.3").compatible(&EffectiveVersion::from_str("1.1.3")),
+            VersionCompatibility::GreaterThan
+        );
+
+        assert_eq!(
+            EffectiveVersion::from_str("1.2.3").compatible(&EffectiveVersion::from_str("1.2.2")),
+            VersionCompatibility::GreaterThan
+        );
+
+        assert_eq!(
+            EffectiveVersion::from_str("1.2.3").compatible(&EffectiveVersion::from_str("1.11.3")),
+            VersionCompatibility::LessThan
+        );
+
+        assert_eq!(
+            EffectiveVersion::from_str("1.2.3").compatible(&EffectiveVersion::from_str("2.1.3")),
+            VersionCompatibility::Conflict
+        );
+
+        // zero-major
+        assert_eq!(
+            EffectiveVersion::from_str("0.2.3").compatible(&EffectiveVersion::from_str("0.2.3")),
+            VersionCompatibility::Equals
+        );
+
+        assert_eq!(
+            EffectiveVersion::from_str("0.2.3").compatible(&EffectiveVersion::from_str("0.2.2")),
+            VersionCompatibility::GreaterThan
+        );
+
+        assert_eq!(
+            EffectiveVersion::from_str("0.2.3").compatible(&EffectiveVersion::from_str("0.2.11")),
+            VersionCompatibility::LessThan
+        );
+
+        assert_eq!(
+            EffectiveVersion::from_str("0.2.3").compatible(&EffectiveVersion::from_str("0.3.2")),
+            VersionCompatibility::Conflict
+        );
     }
 
     #[test]
