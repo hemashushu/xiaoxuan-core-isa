@@ -37,17 +37,46 @@ pub const RUNTIME_EDITION: &[u8; 8] = b"2025\0\0\0\0";
 pub struct EffectiveVersion {
     pub major: u16,
     pub minor: u16,
+    pub patch: u16,
 }
 
 impl EffectiveVersion {
-    pub fn new(major: u16, minor: u16) -> Self {
-        Self { major, minor }
+    pub fn new(major: u16, minor: u16, patch: u16) -> Self {
+        Self {
+            major,
+            minor,
+            patch,
+        }
+    }
+
+    pub fn from_u64(value: u64) -> Self {
+        let patch = (value & 0xffff) as u16;
+        let minor = ((value >> 16) & 0xffff) as u16;
+        let major = ((value >> 32) & 0xffff) as u16;
+        Self {
+            major,
+            minor,
+            patch,
+        }
+    }
+
+    pub fn to_u64(&self) -> u64 {
+        let mut value = self.major as u64;
+        value = (value << 16) | self.minor as u64;
+        value = (value << 16) | self.patch as u64;
+        value
+    }
+}
+
+impl PartialOrd for EffectiveVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.to_u64().partial_cmp(&other.to_u64())
     }
 }
 
 impl Display for EffectiveVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.major, self.minor)
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
 
@@ -456,7 +485,7 @@ pub enum ModuleDependency {
 
 // The name of module itself in the import module list of
 // object file or the shared module.
-pub const SELF_REFERENCE_MODULE_NAME: &'static str = "module";
+pub const SELF_REFERENCE_MODULE_NAME: &str = "module";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "library")]
@@ -643,9 +672,36 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::{
-        DependencyCondition, DependencyLocal, DependencyRemote, DependencyShare,
+        DependencyCondition, DependencyLocal, DependencyRemote, DependencyShare, EffectiveVersion,
         ExternalLibraryDependency, ModuleDependency,
     };
+
+    #[test]
+    fn test_effective_version() {
+        let v0 = EffectiveVersion::new(0x11, 0x13, 0x17);
+        let n0 = v0.to_u64();
+        assert_eq!(n0, 0x0011_0013_0017_u64);
+
+        let v1 = EffectiveVersion::from_u64(n0);
+        assert_eq!(v1.major, 0x11);
+        assert_eq!(v1.minor, 0x13);
+        assert_eq!(v1.patch, 0x17);
+
+        let v2 = EffectiveVersion::new(0x13, 0x11, 0x7);
+        let v3 = EffectiveVersion::new(0x11, 0x17, 0x13);
+        let v4 = EffectiveVersion::new(0x11, 0x7, 0x23);
+
+        // Eq
+        assert!(v0 == v1);
+        assert!(v0 != v2);
+
+        // Cmp
+        assert!(v0 >= v1);
+        assert!(v0 <= v1);
+        assert!(v0 < v2);
+        assert!(v0 < v3);
+        assert!(v0 > v4);
+    }
 
     #[test]
     fn test_serialize_dependency() {
