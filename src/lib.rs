@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 // not guarantee successful compilation. Application developers should check for updates to
 // dependent modules and try to keep the module's edition consistent with the application's.
 pub const RUNTIME_EDITION: &[u8; 8] = b"2025\0\0\0\0";
+pub const RUNTIME_EDITION_STRING: &str = "2025";
 
 // Semantic Versioning
 // - https://semver.org/
@@ -387,10 +388,11 @@ pub enum ModuleDependencyType {
     // this type of dependency can only be used as local development and testing.
     // DO NOT distribute modules containing this type of dependency to the
     // central repository, actually the compiler and runtime will
-    // refuse to compile when a project tries to add a module containing
-    // a local dependency via "Remote" and "Share".
+    // refuse to compile when a "Remote" and "Share" module containing
+    // a "Local" dependency.
     //
-    // It's worth noting that the local module is recompiled at EVERY compilation.
+    // It's worth noting that the local module is recompiled at EVERY compilation
+    // if the source code changed.
     Local = 0x0,
 
     // module from a remote GIT repository
@@ -412,6 +414,12 @@ pub enum ModuleDependencyType {
     //
     // note that the normal HTTP web service is **NOT** suitable for
     // remote modules bacause of the lack of update information.
+    //
+    // because the remote revisions are not comparable, this type of dependency
+    // can only be used as internal development and testing.
+    // DO NOT distribute modules containing this type of dependency to the
+    // central repository, the compiler and runtime will refuse to compile when
+    // a "Share" module containing a "Remote" dependency.
     Remote,
 
     // module from the central repository
@@ -757,7 +765,8 @@ mod tests {
 
     use crate::{
         DependencyCondition, DependencyLocal, DependencyRemote, DependencyShare, EffectiveVersion,
-        ExternalLibraryDependency, ModuleDependency, VersionCompatibility,
+        ExternalLibraryDependency, ModuleDependency, VersionCompatibility, RUNTIME_EDITION,
+        RUNTIME_EDITION_STRING,
     };
 
     #[test]
@@ -843,6 +852,19 @@ mod tests {
         assert_eq!(
             EffectiveVersion::from_str("0.2.3").compatible(&EffectiveVersion::from_str("0.3.2")),
             VersionCompatibility::Conflict
+        );
+    }
+
+    #[test]
+    fn test_runtime_edition() {
+        let strlen = RUNTIME_EDITION
+            .iter()
+            .position(|c| *c == 0)
+            .unwrap_or(RUNTIME_EDITION.len());
+
+        assert_eq!(
+            std::str::from_utf8(&RUNTIME_EDITION[..strlen]).unwrap(),
+            RUNTIME_EDITION_STRING
         );
     }
 
