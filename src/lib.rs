@@ -381,7 +381,9 @@ pub enum ModuleDependencyType {
     // the value of this type is a path to a folder, e.g.
     //
     // modules: [
-    //   "module_name": module::Local("~/myprojects/hello")
+    //   "module_name": module::local({
+    //       path: "~/myprojects/hello"
+    //     })
     // ]
     //
     // because of the lack of version information on the local file system,
@@ -401,11 +403,11 @@ pub enum ModuleDependencyType {
     // and path, e.g.
     //
     // modules: [
-    //   "module_name": module::Remote(
+    //   "module_name": module::remote(
     //     {
-    //       url:"https://github.com/hemashushu/xiaoxuan-core-extension.git",
-    //       revision="commit or tag",
-    //       path="/modules/sha2"
+    //       url: "https://github.com/hemashushu/xiaoxuan-core-extension.git",
+    //       revision: "commit or tag",
+    //       path: "/modules/sha2"
     //     })
     // ]
     //
@@ -435,7 +437,7 @@ pub enum ModuleDependencyType {
     // repository name, e.g.
     //
     // modules:[
-    //   "module_name": module::Share(
+    //   "module_name": module::share(
     //     {
     //       repository_name: "...",
     //       version: {major:M, minor:N}
@@ -461,17 +463,18 @@ pub enum ModuleDependencyType {
     // in the configuration, e.g.
     //
     // modules:[
-    //   "module_name": module::Runtime
+    //   "module_name": module::runtime
     // ]
     Runtime,
 
-    // this type is for assembler, linker and interpreter use only,
+    // this type is for assembler and linker use only,
+    // and it only exists in the object files,
     // it represents the current module.
     //
-    // users **CANNOT** configure modules of this type.
+    // users **CANNOT** configure modules of this type, e.g.
     //
     // modules:[
-    //   "module": module::Current
+    //   "module": module::module  // INVALID
     // ]
     //
     // Under the hood
@@ -479,7 +482,7 @@ pub enum ModuleDependencyType {
     // When generating a "object module", the assembler adds a dependency of
     // this type, so the linker can import functions and data from other submodules under
     // the same module.
-    Current,
+    Module,
 }
 
 /// the type of dependent libraries
@@ -493,7 +496,9 @@ pub enum ExternalLibraryDependencyType {
     // the value of this type is a path to a file (with library so-name), e.g.
     //
     // libraries: [
-    //    "hello": library::Local("~/myprojects/hello/lib/libhello.so.1")
+    //    "hello": library::local({
+    //        path: "~/myprojects/hello/lib/libhello.so.1"
+    //      })
     // ]
     //
     // notes that the format of "so-name" is "libfoo.so.MAJOR_VERSION_NUMBER",
@@ -506,11 +511,11 @@ pub enum ExternalLibraryDependencyType {
     // e.g.
     //
     // libraries: [
-    //   "lz4": library::Remote(
+    //   "lz4": library::remote(
     //     {
-    //       url:"https://github.com/hemashushu/xiaoxuan-core-extension.git",
-    //       revision="commit/tag",
-    //       path="/libraries/lz4/lib/liblz4.so.1"
+    //       url: "https://github.com/hemashushu/xiaoxuan-core-extension.git",
+    //       revision: "commit/tag",
+    //       path: "/libraries/lz4/lib/liblz4.so.1"
     //     })
     // ]
     //
@@ -522,7 +527,7 @@ pub enum ExternalLibraryDependencyType {
     // an example of this type:
     //
     // libraries: [
-    //   "zlib": library::Share(
+    //   "zlib": library::share(
     //     {
     //       repository_name: "...",
     //       version: {major:M, minor:N}
@@ -540,7 +545,7 @@ pub enum ExternalLibraryDependencyType {
     // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/libraries/libname/lib/libfile.so"
     //
     // libraries: [
-    //   "zstd": library::Runtime
+    //   "zstd": library::runtime
     // ]
     Runtime,
 
@@ -551,7 +556,7 @@ pub enum ExternalLibraryDependencyType {
     //
     // e.g.
     // libraries: [
-    //   "lz4": System("liblz4.so.1")
+    //   "lz4": library::system("liblz4.so.1")
     // ]
     System,
 }
@@ -571,12 +576,11 @@ pub enum ModuleDependency {
     #[serde(rename = "runtime")]
     Runtime,
 
-    #[serde(rename = "current")]
-    Current,
+    #[serde(rename = "module")]
+    Module,
 }
 
-// The name of module itself in the import module list of
-// object file or the shared module.
+// The name of `ModuleDependency::Module`.
 pub const SELF_REFERENCE_MODULE_NAME: &str = "module";
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
