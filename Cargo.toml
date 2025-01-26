@@ -1,12 +1,12 @@
 [package]
 name = "anc-isa"
-version = "0.2.1"
+version = "2.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0.216", features = ["derive"] }
+serde = { version = "1.0.217", features = ["derive"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
