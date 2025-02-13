@@ -420,44 +420,38 @@ pub enum ModuleDependencyType {
     // because the remote revisions are not comparable, this type of dependency
     // can only be used as internal development and testing.
     // DO NOT distribute modules containing this type of dependency to the
-    // central repository, the compiler and runtime will refuse to compile when
+    // central registry, the compiler and runtime will refuse to compile when
     // a "Share" module containing a "Remote" dependency.
     Remote,
 
-    // module from the central repository
+    // module from the central registry
     //
     // the runtime specifies a default location as the
-    // "shared modules repository", which is a Git repo
+    // "shared modules central registry", which is a Git repo
     // that provides the module index.
     //
     // users can also customize a different location or add
-    // multiple repository in the runtime settings.
+    // multiple registry in the runtime settings.
     //
-    // the value of this type contains the version and an optional
-    // repository name, e.g.
+    // the value of this type contains the version, e.g.
     //
     // modules:[
     //   "module_name": module::share(
     //     {
-    //       repository_name: "...",
-    //       version: {major:M, minor:N}
+    //       version: "{major.minor.patch}"
     //     })
     // ]
     //
     // this type of module is downloaded and cached to a local directory, e.g.
     //
-    // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/modules/modname/VERSION"
-    //
-    // by default there are 2 central repositories:
-    // - default
-    // - default-mirror
+    // "{/usr/lib/anc, /usr/local/lib/anc, ~/.anc}/modules/modname/VERSION"
     Share,
 
     // module that comes with the runtime
     //
     // this type of module is located locally in a directory, e.g.
     //
-    // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/runtime/modules/modname"
+    // "{/usr/lib/anc, /usr/local/lib/anc, ~/.anc}/runtimes/EDITION/modules/modname"
     //
     // there is no value of this type because the module name is specified
     // in the configuration, e.g.
@@ -497,7 +491,7 @@ pub enum ExternalLibraryDependencyType {
     //
     // libraries: [
     //    "hello": library::local({
-    //        path: "~/myprojects/hello/lib/libhello.so.1"
+    //        path: "~/myprojects/hello/output/libhello.so.1"
     //      })
     // ]
     //
@@ -513,41 +507,28 @@ pub enum ExternalLibraryDependencyType {
     // libraries: [
     //   "lz4": library::remote(
     //     {
-    //       url: "https://github.com/hemashushu/xiaoxuan-core-extension.git",
+    //       url: "https://github.com/hemashushu/xiaoxuan-cc-lz4.git",
     //       revision: "commit/tag",
-    //       path: "/libraries/lz4/lib/liblz4.so.1"
     //     })
     // ]
     //
     // see also `ModuleDependentType::Remote`
     Remote,
 
-    // library from the central repository
+    // library from the central registry
     //
     // an example of this type:
     //
     // libraries: [
     //   "zlib": library::share(
     //     {
-    //       repository_name: "...",
-    //       version: {major:M, minor:N}
+    //       version: "{major.minor.patch}"
     //     })
     // ]
     //
     // this type of library is downloaded and cached to a local directory, e.g.
-    // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/libraries/libname/VERSION"
+    // "{/usr/lib/ancc, /usr/local/lib/ancc, ~/.ancc}/modules/libname/VERSION"
     Share,
-
-    // library that comes with the runtime
-    //
-    // this type of module is located locally in a directory, e.g.
-    //
-    // "{/usr/lib, /usr/local/lib, ~/.local/lib}/anc/EDITION/libraries/libname/lib/libfile.so"
-    //
-    // libraries: [
-    //   "zstd": library::runtime
-    // ]
-    Runtime,
 
     // library from system
     //
@@ -595,9 +576,6 @@ pub enum ExternalLibraryDependency {
     #[serde(rename = "share")]
     Share(Box<DependencyShare>),
 
-    #[serde(rename = "runtime")]
-    Runtime,
-
     #[serde(rename = "system")]
     System(/* the soname of library, e.g. libz.so.1 */ String),
 }
@@ -629,9 +607,6 @@ pub struct DependencyRemote {
     /// Git commit or tag
     pub reversion: String,
 
-    /// sub-path
-    pub path: String,
-
     /// Optional
     /// the default value is []
     #[serde(default)]
@@ -646,7 +621,7 @@ pub struct DependencyRemote {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "share")]
 pub struct DependencyShare {
-    /// Semver e.g. "1.0"
+    /// Semver e.g. "1.0.1"
     pub version: String,
 
     /// Optional
@@ -658,12 +633,6 @@ pub struct DependencyShare {
     /// the default value is DependencyCondition::True
     #[serde(default)]
     pub condition: DependencyCondition,
-
-    /// Optional
-    /// The name of repository
-    /// the default value is ""
-    #[serde(default)]
-    pub repository: String,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -716,7 +685,6 @@ impl Display for ExternalLibraryDependencyType {
             ExternalLibraryDependencyType::Local => f.write_str("local"),
             ExternalLibraryDependencyType::Remote => f.write_str("remote"),
             ExternalLibraryDependencyType::Share => f.write_str("share"),
-            ExternalLibraryDependencyType::Runtime => f.write_str("runtime"),
             ExternalLibraryDependencyType::System => f.write_str("system"),
         }
     }
@@ -893,7 +861,6 @@ mod tests {
             ason::to_string(&ModuleDependency::Remote(Box::new(DependencyRemote {
                 url: "https://github.com/hemashushu/xiaoxuan-core-module.git".to_owned(),
                 reversion: "v1.0.0".to_owned(),
-                path: "/modules/sha2".to_owned(),
                 parameters: HashMap::default(),
                 condition: DependencyCondition::False,
             })))
@@ -901,7 +868,6 @@ mod tests {
             r#"module::remote({
     url: "https://github.com/hemashushu/xiaoxuan-core-module.git"
     reversion: "v1.0.0"
-    path: "/modules/sha2"
     parameters: [
     ]
     condition: cond::false
@@ -913,7 +879,6 @@ mod tests {
                 version: "2.3".to_owned(),
                 parameters: HashMap::default(),
                 condition: DependencyCondition::IsTrue("enable_abc".to_owned()),
-                repository: String::default(),
             })))
             .unwrap(),
             r#"module::share({
@@ -921,7 +886,6 @@ mod tests {
     parameters: [
     ]
     condition: cond::is_true("enable_abc")
-    repository: ""
 })"#
         );
 
@@ -930,7 +894,6 @@ mod tests {
                 version: "11.13".to_owned(),
                 parameters: HashMap::default(),
                 condition: DependencyCondition::Eval("enable_abc && enable_xyz".to_owned()),
-                repository: "custom".to_owned(),
             })))
             .unwrap(),
             r#"module::share({
@@ -938,7 +901,6 @@ mod tests {
     parameters: [
     ]
     condition: cond::eval("enable_abc && enable_xyz")
-    repository: "custom"
 })"#
         );
     }
@@ -962,17 +924,15 @@ mod tests {
         assert_eq!(
             ason::from_str::<ExternalLibraryDependency>(
                 r#"library::remote({
-                url: "https://github.com/hemashushu/xiaoxuan-core-extension.git"
+                url: "https://github.com/hemashushu/xiaoxuan-cc-lz4.git"
                 reversion: "v1.0.0"
-                path: "/libraries/lz4/lib/liblz4.so.1"
                 condition: cond::false
             })"#
             )
             .unwrap(),
             ExternalLibraryDependency::Remote(Box::new(DependencyRemote {
-                url: "https://github.com/hemashushu/xiaoxuan-core-extension.git".to_owned(),
+                url: "https://github.com/hemashushu/xiaoxuan-cc-lz4.git".to_owned(),
                 reversion: "v1.0.0".to_owned(),
-                path: "/libraries/lz4/lib/liblz4.so.1".to_owned(),
                 parameters: HashMap::default(),
                 condition: DependencyCondition::False
             }))
@@ -990,7 +950,6 @@ mod tests {
                 version: "2.3".to_owned(),
                 parameters: HashMap::default(),
                 condition: DependencyCondition::IsTrue("enable_abc".to_owned()),
-                repository: String::default(),
             }))
         );
 
@@ -999,7 +958,6 @@ mod tests {
                 r#"library::share({
                 version: "11.13"
                 condition: cond::is_true("enable_abc && enable_xyz")
-                repository: "custom"
             })"#
             )
             .unwrap(),
@@ -1007,7 +965,6 @@ mod tests {
                 version: "11.13".to_owned(),
                 parameters: HashMap::default(),
                 condition: DependencyCondition::IsTrue("enable_abc && enable_xyz".to_owned()),
-                repository: "custom".to_owned(),
             }))
         );
     }
