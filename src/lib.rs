@@ -462,7 +462,7 @@ pub enum ModuleDependencyType {
     Runtime,
 
     // this type is for assembler and linker use only,
-    // and it only exists in the object files,
+    // and it only exists in the import module list of object files,
     // it represents the current module.
     //
     // users **CANNOT** configure modules of this type, e.g.
@@ -474,7 +474,7 @@ pub enum ModuleDependencyType {
     // Under the hood
     // --------------
     // When generating a "object module", the assembler adds a dependency of
-    // this type, so the linker can import functions and data from other submodules under
+    // this type, to help the linker to import functions and data from other submodules under
     // the same module.
     Module,
 }
