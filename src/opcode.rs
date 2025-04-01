@@ -191,12 +191,21 @@ pub const MAX_OPCODE_NUMBER: usize = 0x480;
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub enum Opcode {
+    /**
+     * Fundamental
+     */
     // instruction to do nothing.
     //
     // it's usually used for padding instructions to form 32 bits (4-byte) alignment.
     //
     // () -> ()
     nop = 0x0100,
+
+    // terminates the current process (program) immediately,
+    // it is generally used in cases where an unrecoverable error is encountered.
+    //
+    // (param terminate_code:i32) NO_RETURN
+    terminate,
 
     // set an immediately number to the top of stack.
     //
@@ -223,6 +232,9 @@ pub enum Opcode {
     imm_f32, // (param number:i32) -> f32
     imm_f64, // (param number_low:i32, number_high:i32) -> f64
 
+    /**
+     * Local variables
+     */
     // loading local variables
     //
     // load the specified local variable and push it to the stack.
@@ -323,6 +335,9 @@ pub enum Opcode {
     local_store_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f64) -> (remain_values)
     local_store_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f32) -> (remain_values)
 
+    /**
+     * Data
+     */
     // loading data
     //
     // i32/i64/f32/f64 data load/store instructions require the address and offset alignment:
@@ -338,12 +353,12 @@ pub enum Opcode {
     //
     // note that all loaded data except the i64 will be signed-extended to i64
     data_load_i64 = 0x01c0, // (param offset_bytes:i16 data_public_index:i32) -> i64
-    data_load_i32_s,        // (param offset_bytes:i16 data_public_index:i32) -> i32
-    data_load_i32_u,        // (param offset_bytes:i16 data_public_index:i32) -> i32
-    data_load_i16_s,        // (param offset_bytes:i16 data_public_index:i32) -> i16
-    data_load_i16_u,        // (param offset_bytes:i16 data_public_index:i32) -> i16
-    data_load_i8_s,         // (param offset_bytes:i16 data_public_index:i32) -> i8
-    data_load_i8_u,         // (param offset_bytes:i16 data_public_index:i32) -> i8
+    data_load_i32_s, // (param offset_bytes:i16 data_public_index:i32) -> i32
+    data_load_i32_u, // (param offset_bytes:i16 data_public_index:i32) -> i32
+    data_load_i16_s, // (param offset_bytes:i16 data_public_index:i32) -> i16
+    data_load_i16_u, // (param offset_bytes:i16 data_public_index:i32) -> i16
+    data_load_i8_s,  // (param offset_bytes:i16 data_public_index:i32) -> i8
+    data_load_i8_u,  // (param offset_bytes:i16 data_public_index:i32) -> i8
 
     // data_public_index
     // -----------------
@@ -394,83 +409,49 @@ pub enum Opcode {
     data_store_extend_f64, // (param data_public_index:i32) (operand offset_bytes:i64 value:f64) -> (remain_values)
     data_store_extend_f32, // (param data_public_index:i32) (operand offset_bytes:i64 value:f32) -> (remain_values)
 
-    // note:
-    // both local variables and data have NO internal data type at all,
-    // they are both just bytes in the memory.
-    // so you can call 'local_store_i8' and 'local_load_i8_u'
-    // even if the local variable is defined as i64.
+    data_load_dynamic_i64, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i64
+    data_load_dynamic_i32_s, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i32
+    data_load_dynamic_i32_u, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i32
+    data_load_dynamic_i16_s, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i16
+    data_load_dynamic_i16_u, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i16
+    data_load_dynamic_i8_s, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i8
+    data_load_dynamic_i8_u, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i8
+    data_load_dynamic_f64, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> f64
+    data_load_dynamic_f32, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> f32
 
-    // memory loading
-    //
-    // note that the address of memory is a 64-bit integer number.
-    memory_load_i64 = 0x0200, // (param offset_bytes:i16) (operand memory_address:i64) -> i64
-    memory_load_i32_s,        // (param offset_bytes:i16) (operand memory_address:i64) -> i32
-    memory_load_i32_u,        // (param offset_bytes:i16) (operand memory_address:i64) -> i32
-    memory_load_i16_s,        // (param offset_bytes:i16) (operand memory_address:i64) -> i16
-    memory_load_i16_u,        // (param offset_bytes:i16) (operand memory_address:i64) -> i16
-    memory_load_i8_s,         // (param offset_bytes:i16) (operand memory_address:i64) -> i8
-    memory_load_i8_u,         // (param offset_bytes:i16) (operand memory_address:i64) -> i8
+    data_store_dynamic_i64, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:i64) -> (remain_values)
+    data_store_dynamic_i32, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:i32) -> (remain_values)
+    data_store_dynamic_i16, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:i32) -> (remain_values)
+    data_store_dynamic_i8, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:i32) -> (remain_values)
+    data_store_dynamic_f64, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:f64) -> (remain_values)
+    data_store_dynamic_f32, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:f32) -> (remain_values)
 
-    // load f64 with floating-point validity check.
-    //
-    // (param offset_bytes:i16) (operand memory_address:i64) -> f64
-    memory_load_f64,
+    /**
+     * Memory
+     */
 
-    // load f32 with floating-point validity check.
-    //
-    // note that the high part of operand (on the stack) is undefined
-    //
-    // (param offset_bytes:i16) (operand memory_address:i64) -> f32
-    memory_load_f32,
+    // allocate new memory chunk and return a data public index.
+    // note the the index of memory chunk is not necessary a sequence number.
+    memory_allocate = 0x0200, // () (operand align_in_bytes:i16 size_in_bytes:i64) -> i32
 
-    // memory storing
-    memory_store_i64, // (param offset_bytes:i16) (operand memory_address:i64 value:i64) -> (remain_values)
-    memory_store_i32, // (param offset_bytes:i16) (operand memory_address:i64 value:i32) -> (remain_values)
-    memory_store_i16, // (param offset_bytes:i16) (operand memory_address:i64 value:i32) -> (remain_values)
-    memory_store_i8, // (param offset_bytes:i16) (operand memory_address:i64 value:i32) -> (remain_values)
-    memory_store_f64, // (param offset_bytes:i16) (operand memory_address:i64 value:f64) -> (remain_values)
-    memory_store_f32, // (param offset_bytes:i16) (operand memory_address:i64 value:f32) -> (remain_values)
+    // resize the exists memory chunk
+    memory_resize, // () (operand data_public_index:i32 size_in_bytes:i64) -> i32
 
-    // memory loading with boundary checking
-    //     memory_load_bound_i64,   // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> i64
-    //     memory_load_bound_i32_s, // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> i32
-    //     memory_load_bound_i32_u, // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> i32
-    //     memory_load_bound_i16_s, // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> i16
-    //     memory_load_bound_i16_u, // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> i16
-    //     memory_load_bound_i8_s,  // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> i8
-    //     memory_load_bound_i8_u,  // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> i8
-    //     memory_load_bound_f64,   // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> f64
-    //     memory_load_bound_f32,   // (operand addr:i64 length_bytes:i32 offset_bytes:i64) -> f32
-    //
-    // memory storing with boundary checking
-    //     memory_store_bound_i64,  // (operand addr:i64 length_bytes:i32 offset_bytes:i64 value:i64) -> (remain_values)
-    //     memory_store_bound_i32,  // (operand addr:i64 length_bytes:i32 offset_bytes:i64 value:i32) -> (remain_values)
-    //     memory_store_bound_i16,  // (operand addr:i64 length_bytes:i32 offset_bytes:i64 value:i32) -> (remain_values)
-    //     memory_store_bound_i8,   // (operand addr:i64 length_bytes:i32 offset_bytes:i64 value:i32) -> (remain_values)
-    //     memory_store_bound_f64,  // (operand addr:i64 length_bytes:i32 offset_bytes:i64 value:f64) -> (remain_values)
-    //     memory_store_bound_f32,  // (operand addr:i64 length_bytes:i32 offset_bytes:i64 value:f32) -> (remain_values)
+    memory_free, // () (operand data_public_index:i32) -> ()
 
     // fill the specified memory region with the specified (i8) value
     //
-    // () (operand addr:i64 value:i8 count:i64) -> ()
-    memory_fill = 0x0240,
+    // () (operand data_public_index:i32 value:i8 count:i64) -> ()
+    memory_fill,
 
     // copy the specified memory region to the specified location
     //
-    // () (operand dst_addr:i64 src_addr:i64 count:i64) -> ()
+    // () (operand dst_data_public_index:i32 src_data_public_index:i32 count:i64) -> ()
     memory_copy,
 
-    // return the amount of pages of the memory, by default the size of page
-    // is MEMORY_PAGE_SIZE_IN_BYTES (64 KiB).
-    //
-    // () -> pages:i64
-    memory_capacity,
-
-    // increase or decrease the memory size and return the new capacity (in pages)
-    //
-    // () (operand pages:i64) -> new_pages:i64
-    memory_resize,
-
+    /**
+     * Conversion
+     */
     // truncate i64 to i32
     //
     // discard the high 32 bits of an i64 number directly
@@ -530,8 +511,9 @@ pub enum Opcode {
     convert_i64_s_to_f64, // () (operand number:i64) -> f64
     convert_i64_u_to_f64, // () (operand number:i64) -> f64
 
-    // comparison
-    //
+    /**
+     * Comparison
+     */
     // note that for the binary operations, the first operand pops up from the
     // stack is the right-hand-side value, e.g.
     //
@@ -579,17 +561,17 @@ pub enum Opcode {
     // ;; \----/
     // ```
     eqz_i32 = 0x02c0, // () (operand number:i32) -> i64
-    nez_i32,          // () (operand number:i32) -> i64
-    eq_i32,           // () (operand left:i32 right:i32) -> i64
-    ne_i32,           // () (operand left:i32 right:i32) -> i64
-    lt_i32_s,         // () (operand left:i32 right:i32) -> i64
-    lt_i32_u,         // () (operand left:i32 right:i32) -> i64
-    gt_i32_s,         // () (operand left:i32 right:i32) -> i64
-    gt_i32_u,         // () (operand left:i32 right:i32) -> i64
-    le_i32_s,         // () (operand left:i32 right:i32) -> i64, redundant
-    le_i32_u,         // () (operand left:i32 right:i32) -> i64, redundant
-    ge_i32_s,         // () (operand left:i32 right:i32) -> i64, redundant
-    ge_i32_u,         // () (operand left:i32 right:i32) -> i64, redundant
+    nez_i32,  // () (operand number:i32) -> i64
+    eq_i32,   // () (operand left:i32 right:i32) -> i64
+    ne_i32,   // () (operand left:i32 right:i32) -> i64
+    lt_i32_s, // () (operand left:i32 right:i32) -> i64
+    lt_i32_u, // () (operand left:i32 right:i32) -> i64
+    gt_i32_s, // () (operand left:i32 right:i32) -> i64
+    gt_i32_u, // () (operand left:i32 right:i32) -> i64
+    le_i32_s, // () (operand left:i32 right:i32) -> i64, redundant
+    le_i32_u, // () (operand left:i32 right:i32) -> i64, redundant
+    ge_i32_s, // () (operand left:i32 right:i32) -> i64, redundant
+    ge_i32_u, // () (operand left:i32 right:i32) -> i64, redundant
 
     eqz_i64,  // () (operand number:i64) -> i64
     nez_i64,  // () (operand number:i64) -> i64
@@ -617,7 +599,10 @@ pub enum Opcode {
     le_f64, // () (operand left:f64 right:f64) -> i64
     ge_f64, // () (operand left:f64 right:f64) -> i64
 
-    // arithmetic addition
+    /**
+     * Arithmetic
+     */
+    // addition
     //
     // wrapping add, e.g. 0xffff_ffff + 2 = 1 (-1 + 2 = 1)
     //
@@ -756,14 +741,15 @@ pub enum Opcode {
     mul_f64, // () (operand left:f64 right:f64) -> f64
     div_f64, // () (operand left:f64 right:f64) -> f64
 
-    // bitwise
-    //
+    /**
+     * Bitwise
+     */
     // ref:
     // https://en.wikipedia.org/wiki/Bitwise_operation
     and = 0x0340, // bitwise AND     () (operand left:i64 right:i64) -> i64
-    or,           // bitwise OR      () (operand left:i64 right:i64) -> i64
-    xor,          // bitwise XOR     () (operand left:i64 right:i64) -> i64
-    not,          // bitwise NOT     () (operand number:i64) -> i64
+    or,  // bitwise OR      () (operand left:i64 right:i64) -> i64
+    xor, // bitwise XOR     () (operand left:i64 right:i64) -> i64
+    not, // bitwise NOT     () (operand number:i64) -> i64
 
     // example of instruction `shift_left_i32`:
     //
@@ -827,15 +813,16 @@ pub enum Opcode {
     count_trailing_zeros_i64, // () (operand number:i64) -> i32
     count_ones_i64,   // () (operand number:i64) -> i32
 
-    // math
-    //
+    /**
+     * Math
+     */
     abs_i32 = 0x0380, // () (operand number:i32) -> i32
-    neg_i32,          // () (operand number:i32) -> i32
-    abs_i64,          // () (operand number:i64) -> i64
-    neg_i64,          // () (operand number:i64) -> i64
-    abs_f32,          // () (operand number:f32) -> f32
-    neg_f32,          // () (operand number:f32) -> f32
-    copysign_f32,     // () (operand num:f32 sign:f32) -> f32
+    neg_i32,      // () (operand number:i32) -> i32
+    abs_i64,      // () (operand number:i64) -> i64
+    neg_i64,      // () (operand number:i64) -> i64
+    abs_f32,      // () (operand number:f32) -> f32
+    neg_f32,      // () (operand number:f32) -> f32
+    copysign_f32, // () (operand num:f32 sign:f32) -> f32
 
     // sqrt(x)
     // () (operand number:f32) -> f32
@@ -936,6 +923,9 @@ pub enum Opcode {
     // () (operand number:f64 base:f64) -> f64
     log_f64,
 
+    /**
+     * Control flow
+     */
     // control flow "end"
     //
     // when the instruction 'end' is executed, a stack frame is removed and
@@ -1461,7 +1451,7 @@ pub enum Opcode {
     // ```
     //
     // () (operand function_public_index:i32, args...) -> (values)
-    dyncall,
+    call_dynamic,
 
     // environment function call
     //
@@ -1506,15 +1496,18 @@ pub enum Opcode {
     // (param external_function_index:i32) (operand args...) -> return_value:void/i32/i64/f32/f64
     extcall,
 
+    /**
+     * Machine
+     */
     // put the function public index to stack
     //
-    // (param function_public_index:i32) -> i32
-    get_function,
+    // (param function_public_index:i32) -> (module_index:i32, function_public_index:i32)
+    get_function = 0x0440,
 
-    // terminate VM
+    // put the data public index to stack
     //
-    // (param reason_code:u32) NO_RETURN
-    panic = 0x0440,
+    // (param data_public_index:i32) -> (module_index:i32, data_public_index:i32)
+    get_data,
 
     // get the memory address of VM data
     //
@@ -1526,23 +1519,24 @@ pub enum Opcode {
     // when a function exits, the function stack frame
     // is destroyed (or modified), as are the local variables.
     //
-    // |--------------------|--------------|------------------|-----------------|
-    // |                    | by indice    | by VM mem alloc  | by host address |
-    // |--------------------|--------------|------------------|-----------------|
-    // | local variables    | safe         | N/A              | unsafe          |
-    // |--------------------|--------------|------------------|-----------------|
-    // | read-only data     |              |                  |                 |
-    // | read-write data    | safe         | N/A              | not recommended |
-    // | uninitilized data  |              |                  |                 |
-    // |--------------------|--------------|------------------|-----------------|
-    // | memory/heap        | N/A          | safe             | not recommended |
-    // |--------------------|--------------|------------------|-----------------|
+    // |--------------------|----------|----------|-----------------|
+    // |                    | by index | by alloc | by host address |
+    // |--------------------|----------|----------|-----------------|
+    // | local variables    | safe     | -        | unsafe          |
+    // |--------------------|----------|----------|-----------------|
+    // | read-only data     |          |          |                 |
+    // | read-write data    | safe     | -        | not recommended |
+    // | uninitilized data  |          |          |                 |
+    // |--------------------|----------|----------|-----------------|
+    // | memory/heap        | -        | safe     | not recommended |
+    // |--------------------|----------|----------|-----------------|
     //
     //
     host_addr_local, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i64
     host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
     host_addr_data,         // (param offset_bytes:i16 data_public_index:i32) -> i64
     host_addr_data_extend,  // (param data_public_index:i32) (operand offset_bytes:i64) -> i64
+    host_addr_data_dynamic, // (param) (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i64
     host_addr_memory,       // (param offset_bytes:i16) (operand memory_address:i64) -> i64
 
     // this instruction is used to create a pointer to a callback function
@@ -1615,44 +1609,12 @@ impl Opcode {
     pub fn get_name(&self) -> &'static str {
         match self {
             Opcode::nop => "nop",
+            Opcode::terminate => "terminate",
             //
             Opcode::imm_i32 => "imm_i32",
             Opcode::imm_i64 => "imm_i64",
             Opcode::imm_f32 => "imm_f32",
             Opcode::imm_f64 => "imm_f64",
-            //
-            Opcode::data_load_i64 => "data_load_i64",
-            Opcode::data_load_i32_s => "data_load_i32_s",
-            Opcode::data_load_i32_u => "data_load_i32_u",
-            Opcode::data_load_i16_s => "data_load_i16_s",
-            Opcode::data_load_i16_u => "data_load_i16_u",
-            Opcode::data_load_i8_s => "data_load_i8_s",
-            Opcode::data_load_i8_u => "data_load_i8_u",
-            Opcode::data_load_f64 => "data_load_f64",
-            Opcode::data_load_f32 => "data_load_f32",
-            Opcode::data_store_i64 => "data_store_i64",
-            Opcode::data_store_i32 => "data_store_i32",
-            Opcode::data_store_i16 => "data_store_i16",
-            Opcode::data_store_i8 => "data_store_i8",
-            Opcode::data_store_f64 => "data_store_f64",
-            Opcode::data_store_f32 => "data_store_f32",
-            //
-            Opcode::data_load_extend_i64 => "data_load_extend_i64",
-            Opcode::data_load_extend_i32_s => "data_load_extend_i32_s",
-            Opcode::data_load_extend_i32_u => "data_load_extend_i32_u",
-            Opcode::data_load_extend_i16_s => "data_load_extend_i16_s",
-            Opcode::data_load_extend_i16_u => "data_load_extend_i16_u",
-            Opcode::data_load_extend_i8_s => "data_load_extend_i8_s",
-            Opcode::data_load_extend_i8_u => "data_load_extend_i8_u",
-            Opcode::data_load_extend_f64 => "data_load_extend_f64",
-            Opcode::data_load_extend_f32 => "data_load_extend_f32",
-            //
-            Opcode::data_store_extend_i64 => "data_store_extend_i64",
-            Opcode::data_store_extend_i32 => "data_store_extend_i32",
-            Opcode::data_store_extend_i16 => "data_store_extend_i16",
-            Opcode::data_store_extend_i8 => "data_store_extend_i8",
-            Opcode::data_store_extend_f64 => "data_store_extend_f64",
-            Opcode::data_store_extend_f32 => "data_store_extend_f32",
             //
             Opcode::local_load_i64 => "local_load_64",
             Opcode::local_load_i32_s => "local_load_i32_s",
@@ -1663,6 +1625,7 @@ impl Opcode {
             Opcode::local_load_i8_u => "local_load_i8_u",
             Opcode::local_load_f64 => "local_load_f64",
             Opcode::local_load_f32 => "local_load_f32",
+            //
             Opcode::local_store_i64 => "local_store_i64",
             Opcode::local_store_i32 => "local_store_i32",
             Opcode::local_store_i16 => "local_store_i16",
@@ -1687,27 +1650,62 @@ impl Opcode {
             Opcode::local_store_extend_f64 => "local_store_extend_f64",
             Opcode::local_store_extend_f32 => "local_store_extend_f32",
             //
-            Opcode::memory_load_i64 => "memory_load_i64",
-            Opcode::memory_load_i32_s => "memory_load_i32_s",
-            Opcode::memory_load_i32_u => "memory_load_i32_u",
-            Opcode::memory_load_i16_s => "memory_load_i16_s",
-            Opcode::memory_load_i16_u => "memory_load_i16_u",
-            Opcode::memory_load_i8_s => "memory_load_i8_s",
-            Opcode::memory_load_i8_u => "memory_load_i8_u",
-            Opcode::memory_load_f64 => "memory_load_f64",
-            Opcode::memory_load_f32 => "memory_load_f32",
+            Opcode::data_load_i64 => "data_load_i64",
+            Opcode::data_load_i32_s => "data_load_i32_s",
+            Opcode::data_load_i32_u => "data_load_i32_u",
+            Opcode::data_load_i16_s => "data_load_i16_s",
+            Opcode::data_load_i16_u => "data_load_i16_u",
+            Opcode::data_load_i8_s => "data_load_i8_s",
+            Opcode::data_load_i8_u => "data_load_i8_u",
+            Opcode::data_load_f64 => "data_load_f64",
+            Opcode::data_load_f32 => "data_load_f32",
             //
-            Opcode::memory_store_i64 => "memory_store_i64",
-            Opcode::memory_store_i32 => "memory_store_i32",
-            Opcode::memory_store_i16 => "memory_store_i16",
-            Opcode::memory_store_i8 => "memory_store_i8",
-            Opcode::memory_store_f64 => "memory_store_f64",
-            Opcode::memory_store_f32 => "memory_store_f32",
+            Opcode::data_store_i64 => "data_store_i64",
+            Opcode::data_store_i32 => "data_store_i32",
+            Opcode::data_store_i16 => "data_store_i16",
+            Opcode::data_store_i8 => "data_store_i8",
+            Opcode::data_store_f64 => "data_store_f64",
+            Opcode::data_store_f32 => "data_store_f32",
             //
+            Opcode::data_load_extend_i64 => "data_load_extend_i64",
+            Opcode::data_load_extend_i32_s => "data_load_extend_i32_s",
+            Opcode::data_load_extend_i32_u => "data_load_extend_i32_u",
+            Opcode::data_load_extend_i16_s => "data_load_extend_i16_s",
+            Opcode::data_load_extend_i16_u => "data_load_extend_i16_u",
+            Opcode::data_load_extend_i8_s => "data_load_extend_i8_s",
+            Opcode::data_load_extend_i8_u => "data_load_extend_i8_u",
+            Opcode::data_load_extend_f64 => "data_load_extend_f64",
+            Opcode::data_load_extend_f32 => "data_load_extend_f32",
+            //
+            Opcode::data_store_extend_i64 => "data_store_extend_i64",
+            Opcode::data_store_extend_i32 => "data_store_extend_i32",
+            Opcode::data_store_extend_i16 => "data_store_extend_i16",
+            Opcode::data_store_extend_i8 => "data_store_extend_i8",
+            Opcode::data_store_extend_f64 => "data_store_extend_f64",
+            Opcode::data_store_extend_f32 => "data_store_extend_f32",
+            //
+            Opcode::data_load_dynamic_i64 => "data_load_dynamic_i64",
+            Opcode::data_load_dynamic_i32_s => "data_load_dynamic_i32_s",
+            Opcode::data_load_dynamic_i32_u => "data_load_dynamic_i32_u",
+            Opcode::data_load_dynamic_i16_s => "data_load_dynamic_i16_s",
+            Opcode::data_load_dynamic_i16_u => "data_load_dynamic_i16_u",
+            Opcode::data_load_dynamic_i8_s => "data_load_dynamic_i8_s",
+            Opcode::data_load_dynamic_i8_u => "data_load_dynamic_i8_u",
+            Opcode::data_load_dynamic_f64 => "data_load_dynamic_f64",
+            Opcode::data_load_dynamic_f32 => "data_load_dynamic_f32",
+            //
+            Opcode::data_store_dynamic_i64 => "data_store_dynamic_i64",
+            Opcode::data_store_dynamic_i32 => "data_store_dynamic_i32",
+            Opcode::data_store_dynamic_i16 => "data_store_dynamic_i16",
+            Opcode::data_store_dynamic_i8 => "data_store_dynamic_i8",
+            Opcode::data_store_dynamic_f64 => "data_store_dynamic_f64",
+            Opcode::data_store_dynamic_f32 => "data_store_dynamic_f32",
+            //
+            Opcode::memory_allocate => "memory_allocate",
+            Opcode::memory_resize => "memory_resize",
+            Opcode::memory_free => "memory_free",
             Opcode::memory_fill => "memory_fill",
             Opcode::memory_copy => "memory_copy",
-            Opcode::memory_capacity => "memory_capacity",
-            Opcode::memory_resize => "memory_resize",
             //
             Opcode::truncate_i64_to_i32 => "truncate_i64_to_i32",
             Opcode::extend_i32_s_to_i64 => "extend_i32_s_to_i64",
@@ -1895,30 +1893,32 @@ impl Opcode {
             Opcode::block_nez => "block_nez",
             //
             Opcode::call => "call",
-            Opcode::dyncall => "dyncall",
+            Opcode::call_dynamic => "call_dynamic",
             Opcode::envcall => "envcall",
             Opcode::syscall => "syscall",
             Opcode::extcall => "extcall",
             //
             Opcode::get_function => "get_function",
-            //
-            Opcode::panic => "panic",
+            Opcode::get_data => "get_data",
             //
             Opcode::host_addr_local => "host_addr_local",
             Opcode::host_addr_local_extend => "host_addr_local_extend",
             Opcode::host_addr_data => "host_addr_data",
             Opcode::host_addr_data_extend => "host_addr_data_extend",
+            Opcode::host_addr_data_dynamic => "host_addr_data_dynamic",
             Opcode::host_addr_memory => "host_addr_memory",
             Opcode::host_copy_from_memory => "host_copy_from_memory",
             Opcode::host_copy_to_memory => "host_copy_to_memory",
             Opcode::host_external_memory_copy => "host_external_memory_copy",
             Opcode::host_addr_function => "host_addr_function",
+
         }
     }
 
     pub fn from_name(name: &str) -> Self {
         match name {
             "nop" => Opcode::nop,
+            "terminate" => Opcode::terminate,
             //
             "imm_i32" => Opcode::imm_i32,
             "imm_i64" => Opcode::imm_i64,
@@ -1991,27 +1991,28 @@ impl Opcode {
             "data_store_extend_f64" => Opcode::data_store_extend_f64,
             "data_store_extend_f32" => Opcode::data_store_extend_f32,
             //
-            "memory_load_i64" => Opcode::memory_load_i64,
-            "memory_load_i32_s" => Opcode::memory_load_i32_s,
-            "memory_load_i32_u" => Opcode::memory_load_i32_u,
-            "memory_load_i16_s" => Opcode::memory_load_i16_s,
-            "memory_load_i16_u" => Opcode::memory_load_i16_u,
-            "memory_load_i8_s" => Opcode::memory_load_i8_s,
-            "memory_load_i8_u" => Opcode::memory_load_i8_u,
-            "memory_load_f64" => Opcode::memory_load_f64,
-            "memory_load_f32" => Opcode::memory_load_f32,
+            "data_load_dynamic_i64" => Opcode::data_load_dynamic_i64,
+            "data_load_dynamic_i32_s" => Opcode::data_load_dynamic_i32_s,
+            "data_load_dynamic_i32_u" => Opcode::data_load_dynamic_i32_u,
+            "data_load_dynamic_i16_s" => Opcode::data_load_dynamic_i16_s,
+            "data_load_dynamic_i16_u" => Opcode::data_load_dynamic_i16_u,
+            "data_load_dynamic_i8_s" => Opcode::data_load_dynamic_i8_s,
+            "data_load_dynamic_i8_u" => Opcode::data_load_dynamic_i8_u,
+            "data_load_dynamic_f64" => Opcode::data_load_dynamic_f64,
+            "data_load_dynamic_f32" => Opcode::data_load_dynamic_f32,
             //
-            "memory_store_i64" => Opcode::memory_store_i64,
-            "memory_store_i32" => Opcode::memory_store_i32,
-            "memory_store_i16" => Opcode::memory_store_i16,
-            "memory_store_i8" => Opcode::memory_store_i8,
-            "memory_store_f64" => Opcode::memory_store_f64,
-            "memory_store_f32" => Opcode::memory_store_f32,
+            "data_store_dynamic_i64" => Opcode::data_store_dynamic_i64,
+            "data_store_dynamic_i32" => Opcode::data_store_dynamic_i32,
+            "data_store_dynamic_i16" => Opcode::data_store_dynamic_i16,
+            "data_store_dynamic_i8" => Opcode::data_store_dynamic_i8,
+            "data_store_dynamic_f64" => Opcode::data_store_dynamic_f64,
+            "data_store_dynamic_f32" => Opcode::data_store_dynamic_f32,
             //
+            "memory_allocate" => Opcode::memory_allocate,
+            "memory_resize" => Opcode::memory_resize,
+            "memory_free" => Opcode::memory_free,
             "memory_fill" => Opcode::memory_fill,
             "memory_copy" => Opcode::memory_copy,
-            "memory_capacity" => Opcode::memory_capacity,
-            "memory_resize" => Opcode::memory_resize,
             //
             "truncate_i64_to_i32" => Opcode::truncate_i64_to_i32,
             "extend_i32_s_to_i64" => Opcode::extend_i32_s_to_i64,
@@ -2199,19 +2200,19 @@ impl Opcode {
             "block_nez" => Opcode::block_nez,
             //
             "call" => Opcode::call,
-            "dyncall" => Opcode::dyncall,
+            "call_dynamic" => Opcode::call_dynamic,
             "envcall" => Opcode::envcall,
             "syscall" => Opcode::syscall,
             "extcall" => Opcode::extcall,
             //
             "get_function" => Opcode::get_function,
-            //
-            "panic" => Opcode::panic,
+            "get_data" => Opcode::get_data,
             //
             "host_addr_local" => Opcode::host_addr_local,
             "host_addr_local_extend" => Opcode::host_addr_local_extend,
             "host_addr_data" => Opcode::host_addr_data,
             "host_addr_data_extend" => Opcode::host_addr_data_extend,
+            "host_addr_data_dynamic" => Opcode::host_addr_data_dynamic,
             "host_addr_memory" => Opcode::host_addr_memory,
             "host_copy_from_memory" => Opcode::host_copy_from_memory,
             "host_copy_to_memory" => Opcode::host_copy_to_memory,
