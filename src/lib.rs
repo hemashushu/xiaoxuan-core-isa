@@ -1,8 +1,8 @@
 // Copyright (c) 2024 Hemashushu <hippospark@gmail.com>, All rights reserved.
 //
 // This Source Code Form is subject to the terms of
-// the Mozilla Public License version 2.0 and additional exceptions,
-// more details in file LICENSE, LICENSE.additional and CONTRIBUTING.
+// the Mozilla Public License version 2.0 and additional exceptions.
+// For more details, see the LICENSE, LICENSE.additional, and CONTRIBUTING files.
 
 pub mod opcode;
 
@@ -13,22 +13,20 @@ use serde::{Deserialize, Serialize};
 // About Runtime Edition
 // ---------------------
 //
-// Runtime editions are used to represent mutually incompatible generations,
-// meaning different editions may have different syntax and features.
+// Runtime editions represent mutually incompatible generations of the runtime.
+// Different editions may introduce new syntax and features.
 //
-// An application and module must specify a runtime edition. Only when the
-// specified edition matches the actual runtime edition exactly can the application
-// and unit tests run.
+// Applications and modules must specify a runtime edition. The application and
+// unit tests can only run if the specified edition matches the runtime edition exactly.
 //
-// Note that an edition is different from a version number. Editions cannot be compared,
-// nor do they have backward compatibility. For example, a runtime with edition "2028"
-// cannot run applications with edition "2025" or "2030".
+// Note: An edition is not the same as a version number. Editions cannot be compared
+// or assumed to have backward compatibility. For example, a runtime with edition "2028"
+// cannot run applications with editions "2025" or "2030".
 //
-// If the edition of a module is inconsistent with the application's edition, the compiler
-// will still attempt to compile it but will only use the edition specified by the application
-// (i.e., the compiler will ignore the edition declared by the module). Note that this does
-// not guarantee successful compilation. Application developers should check for updates to
-// dependent modules and try to keep the module's edition consistent with the application's.
+// If a module's edition differs from the application's edition, the compiler will
+// attempt to compile it using the application's edition. However, this does not
+// guarantee successful compilation. Developers should ensure that module editions
+// are consistent with the application's edition.
 pub const RUNTIME_EDITION: &[u8; 8] = b"2025\0\0\0\0";
 pub const RUNTIME_EDITION_STRING: &str = "2025";
 
@@ -41,33 +39,6 @@ pub struct EffectiveVersion {
     pub patch: u16,
 }
 
-// version conflicts
-// -----------------
-//
-// If a shared module appears multiple times in the dependency tree with
-// different versions and the major version numbers differ, the compiler
-// will complain. However, if the major version numbers are the same, the
-// highest minor version wil be selected.
-//
-// Note that this implies that in the actual application runtime, the minor
-// version of a module might be higher than what the application explicitly
-// declares. This is permissible because minor version updates are expected to
-// maintain backward compatibility.
-//
-// For instance, if an application depends on a module with version 1.4.0, the
-// actual runtime version of that module could be anywhere from 1.4.0 to 1.99.99.
-//
-// For the local and remote file-base shared modules and libraries,
-// because they lack version information, if their sources
-// (e.g., file paths or URLs) do not match, the compilation will fail.
-//
-// zero major version
-// ------------------
-// When a shared module is in beta stage, the major version number can
-// be set to zero.
-// A zero major version indicates that each minor version is incompatible. If an
-// application's dependency tree contains minor version inconsistencies in modules
-// with a zero major version, compilation will fail.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum VersionCompatibility {
     Equals,
@@ -96,12 +67,12 @@ impl EffectiveVersion {
         }
     }
 
-    /// "x.y.z"
+    /// Parses a version string in the format "x.y.z".
     pub fn from_str(version: &str) -> Self {
         let nums = version
             .split('.')
             .map(
-                |item| item.parse::<u16>().unwrap(), /* u16::from_str_radix(item, 10).unwrap() */
+                |item| item.parse::<u16>().unwrap(), // or `u16::from_str_radix(item, 10).unwrap()`
             )
             .collect::<Vec<_>>();
         assert!(nums.len() == 3);
@@ -122,12 +93,12 @@ impl EffectiveVersion {
 
     pub fn compatible(&self, other: &EffectiveVersion) -> VersionCompatibility {
         if self.major != other.major {
-            // major differ
+            // Major version differs.
             VersionCompatibility::Conflict
         } else if self.major == 0 {
-            // zero major
+            // Zero major version.
             if self.minor != other.minor {
-                // minor differ
+                // Minor version differs.
                 VersionCompatibility::Conflict
             } else if self.patch > other.patch {
                 VersionCompatibility::GreaterThan
@@ -137,7 +108,7 @@ impl EffectiveVersion {
                 VersionCompatibility::Equals
             }
         } else {
-            // normal major
+            // Normal major version.
             if self.minor > other.minor {
                 VersionCompatibility::GreaterThan
             } else if self.minor < other.minor {
@@ -165,73 +136,63 @@ impl Display for EffectiveVersion {
     }
 }
 
-// pub const RUNTIME_MAJOR_VERSION: u16 = 1;
-// pub const RUNTIME_MINOR_VERSION: u16 = 0;
-// pub const RUNTIME_PATCH_VERSION: u16 = 0;
-
-// the max version number the current runtime supported
+// The maximum version number supported by the current runtime.
 pub const IMAGE_FORMAT_MAJOR_VERSION: u16 = 1;
 pub const IMAGE_FORMAT_MINOR_VERSION: u16 = 0;
 
 // About the Version of Shared Modules
 // -----------------------------------
 //
-// An application (or shared module) may depend on one or more other shared modules,
-// when an application (or shared module) references a shared module, it is necessary
-// to declare the major and minor version of the shared module.
+// Applications or shared modules may depend on one or more other shared modules.
+// When referencing a shared module, it is necessary to declare its major and minor version.
 //
-// version conflicts
+// Version Conflicts
 // -----------------
 //
 // If a shared module appears multiple times in the dependency tree with
-// different versions and the major version numbers differ, the compiler
-// will complain. However, if the major version numbers are the same, the
-// highest minor version wil be selected.
+// differing major version numbers, the compiler will raise an error.
+// If the major version numbers are the same, the highest minor version
+// will be selected.
 //
-// Note that this implies that in the actual application running, the minor
-// version of a module might be higher than what the application
-// declares. This is permissible because minor version updates are expected to
-// maintain backward compatibility.
+// This means that at runtime, the minor version of a module may be higher
+// than what the application explicitly declares. This is acceptable because
+// minor version updates are expected to maintain backward compatibility.
 //
-// For instance, if an application depends on a module with version 1.4.0, the
-// actual runtime version of that module could be anywhere from 1.4.0 to 1.99.99.
+// For example, if an application depends on a module with version 1.4.0,
+// the actual runtime version could range from 1.4.0 to 1.99.99.
 //
-// For the local and remote file-base shared modules and libraries,
-// because they lack version information, if their sources
-// (e.g., file paths or URLs) do not match, the compilation will fail.
+// For local and remote file-based shared modules and libraries, which lack
+// version information, compilation will fail if their sources (e.g., file paths
+// or URLs) do not match.
 //
-// zero major version
+// Zero Major Version
 // ------------------
 //
-// When a shared module is in beta stage, the major version number can
-// be set to zero.
-// A zero major version indicates that each minor version is incompatible. If an
-// application's dependency tree contains minor version inconsistencies in modules
-// with a zero major version, compilation will fail.
+// A zero major version indicates that the module is in a beta stage, and each
+// minor version is incompatible. If the dependency tree contains minor version
+// inconsistencies for modules with a zero major version, compilation will fail.
 //
-// note to the author of shared module
-// -----------------------------------
+// Note to Authors of Shared Modules
+// ----------------------------------
 //
-// it is important to note that the public interface (i.e., API) of
-// a shared module MUST REMAIN UNCHANGED throughout the major versions release.
-// for example:
-// - the API of version 1.9 and 1.1 should be the same, the newer may add interfaces,
-//   but the existing interfaces should NOT be changed or removed.
-// - the API of version 1.9 and 2.0 may be different.
+// The public interface (API) of a shared module MUST REMAIN UNCHANGED throughout
+// the release of major versions. For example:
+// - The API of version 1.9 and 1.1 should be the same. Newer versions may add interfaces,
+//   but existing interfaces should NOT be changed or removed.
+// - The API of version 1.9 and 2.0 may differ.
 
-/// the raw data type of operands
+/// The raw data type of operands.
 pub type Operand = [u8; 8];
 pub const OPERAND_SIZE_IN_BYTES: usize = 8;
 
-/// the data type of
-/// - function parameters and results
-/// - the operand of instructions
+/// The data type for:
+/// - Function parameters and results.
+/// - Instruction operands.
 ///
-/// note that 'i32' here means a 32-bit integer, which is equivalent to
-/// the 'uint32_t' in C or 'u32' in Rust. do not confuse it with 'i32' in Rust.
-/// the same applies to the i8, i16 and i64.
+/// Note: The `i32` here refers to a 32-bit integer, equivalent to `uint32_t` in C or `u32` in Rust.
+/// Do not confuse it with Rust's `i32`. The same applies to `i8`, `i16`, and `i64`.
 ///
-/// the function `std::mem::transmute` can be used for converting data type
+/// P.S. the function `std::mem::transmute` can be used for converting data type
 /// between `enum` and `u8` date, e.g.
 ///
 /// ```rust
@@ -240,7 +201,7 @@ pub const OPERAND_SIZE_IN_BYTES: usize = 8;
 /// assert_eq!(a, 2);
 /// ```
 ///
-/// it can be also done through 'union', e.g.
+/// It can be also done through 'union', e.g.
 ///
 /// ```rust
 /// use anc_isa::OperandDataType;
@@ -261,8 +222,8 @@ pub const OPERAND_SIZE_IN_BYTES: usize = 8;
 /// assert_eq!(a, 2);
 /// ```
 ///
+/// https://doc.rust-lang.org/nomicon/other-reprs.html
 #[repr(u8)]
-// https://doc.rust-lang.org/nomicon/other-reprs.html
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum OperandDataType {
     I32 = 0x0,
@@ -271,9 +232,9 @@ pub enum OperandDataType {
     F64,
 }
 
-/// the data type of
-/// - local variables
-/// - data in the DATA sections and heap
+/// The data type for:
+/// - Local variables.
+/// - Data in the DATA sections and heap.
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MemoryDataType {
@@ -287,9 +248,9 @@ pub enum MemoryDataType {
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DataSectionType {
-    ReadOnly = 0x0, // .rodata
-    ReadWrite,      // .data
-    Uninit,         // .bss
+    ReadOnly = 0x0, // similar to the section ".rodata" in ELF.
+    ReadWrite,      // similar to the section ".data" in ELF.
+    Uninit,         // similar to the section ".bss" in ELF.
 }
 
 impl Display for OperandDataType {
@@ -326,10 +287,9 @@ impl Display for DataSectionType {
     }
 }
 
-// values for foreign function interface (FFI)
+// Values for Foreign Function Interface (FFI)
 //
-// it is used for calling VM functions from the outside,
-// or returning values to the foreign caller.
+// Used for calling VM functions from the outside or returning values to the foreign caller.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ForeignValue {
     U32(u32),
@@ -343,7 +303,7 @@ impl ForeignValue {
         if let ForeignValue::U32(v) = self {
             *v
         } else {
-            panic!("Not an u32.")
+            panic!("Not a u32.")
         }
     }
 
@@ -351,7 +311,7 @@ impl ForeignValue {
         if let ForeignValue::U64(v) = self {
             *v
         } else {
-            panic!("Not an u64.")
+            panic!("Not a u64.")
         }
     }
 
@@ -372,173 +332,144 @@ impl ForeignValue {
     }
 }
 
-/// the type of dependent shared modules
+/// The type of dependent shared modules.
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ModuleDependencyType {
-    // module from local file system
+    // Module from the local file system.
     //
-    // the value of this type is a path to a folder, e.g.
+    // The value is a path to a folder, e.g.:
     //
+    // ```ason
     // modules: [
     //   "module_name": module::local({
     //       path: "~/myprojects/hello"
     //     })
     // ]
+    // ```
     //
-    // because of the lack of version information on the local file system,
-    // this type of dependency can only be used as local development and testing.
-    // DO NOT distribute modules containing this type of dependency to the
-    // central repository, actually the compiler and runtime will
-    // refuse to compile when a "Remote" and "Share" module containing
-    // a "Local" dependency.
-    //
-    // It's worth noting that the local module is recompiled at EVERY compilation
-    // if the source code changed.
+    // Local modules are recompiled during every compilation if their source code changes.
+    // This type of dependency is suitable for local development and testing only.
+    // Modules with "Local" dependencies should not be distributed to the central repository.
     Local = 0x0,
 
-    // module from a remote GIT repository
+    // Module from a remote Git repository.
     //
-    // the value of this type contains the Git repository url, commit (hash)
-    // and path, e.g.
+    // The value contains the Git repository URL, commit (hash), and path, e.g.:
     //
+    // ```ason
     // modules: [
-    //   "module_name": module::remote(
-    //     {
+    //   "module_name": module::remote({
     //       url: "https://github.com/hemashushu/xiaoxuan-core-extension.git",
     //       revision: "commit or tag",
     //       path: "/modules/sha2"
     //     })
     // ]
+    // ```
     //
-    // when a project is compiled or run, the remote resource is
-    // downloaded first, and then cached in a local directory.
-    //
-    // note that the normal HTTP web service is **NOT** suitable for
-    // remote modules bacause of the lack of update information.
-    //
-    // because the remote revisions are not comparable, this type of dependency
-    // can only be used as internal development and testing.
-    // DO NOT distribute modules containing this type of dependency to the
-    // central registry, the compiler and runtime will refuse to compile when
-    // a "Share" module containing a "Remote" dependency.
+    // Remote modules are downloaded and cached locally during compilation or runtime.
+    // This type of dependency is suitable for internal development and testing only.
+    // Modules with "Remote" dependencies should not be distributed to the central repository.
     Remote,
 
-    // module from the central registry
+    // Module from the central registry.
     //
-    // the runtime specifies a default location as the
-    // "shared modules central registry", which is a Git repo
-    // that provides the module index.
+    // The runtime specifies a default location for the central registry, which is a Git repository
+    // providing the module index. Users can customize this location or add multiple registries.
     //
-    // users can also customize a different location or add
-    // multiple registry in the runtime settings.
+    // The value contains the version, e.g.:
     //
-    // the value of this type contains the version, e.g.
-    //
-    // modules:[
-    //   "module_name": module::share(
-    //     {
+    // ```ason
+    // modules: [
+    //   "module_name": module::share({
     //       version: "{major.minor.patch}"
     //     })
     // ]
-    //
-    // this type of module is downloaded and cached to a local directory, e.g.
-    //
-    // "{/usr/lib/anc, /usr/local/lib/anc, ~/.anc}/modules/modname/VERSION"
+    // ```
     Share,
 
-    // module that comes with the runtime
+    // Module bundled with the runtime.
     //
-    // this type of module is located locally in a directory, e.g.
+    // These modules are located in specific directories, e.g.:
+    // "{/usr/lib/anc, /usr/local/lib/anc, ~/.anc}/runtimes/EDITION/modules/MODULE_NAME"
     //
-    // "{/usr/lib/anc, /usr/local/lib/anc, ~/.anc}/runtimes/EDITION/modules/modname"
+    // The value is the ASON variant `module::runtime`, e.g.:
     //
-    // there is no value of this type because the module name is specified
-    // in the configuration, e.g.
-    //
+    // ```ason
     // modules:[
     //   "module_name": module::runtime
     // ]
+    // ```
     Runtime,
 
-    // this type is for assembler and linker use only,
-    // and it only exists in the import module list of object files,
-    // it represents the current module.
+    // Represents the current module (used internally by the assembler and linker).
     //
-    // users **CANNOT** configure modules of this type, e.g.
-    //
-    // modules:[
-    //   "module": module::module  // INVALID
-    // ]
-    //
-    // Under the hood
-    // --------------
-    // When generating a "object module", the assembler adds a dependency of
-    // this type, to help the linker to import functions and data from other submodules under
-    // the same module.
+    // This type is only present in the import module list of object files and cannot
+    // be configured by users.
     Module,
 }
 
-/// the type of dependent libraries
+/// The type of dependent libraries.
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ExternalLibraryDependencyType {
-    // library from the local file system
+    // Library from the local file system.
     //
-    // the dependency name is the library's soname removes "lib" prefix and
-    // ".so.N" suffix.
-    // the value of this type is a path to a file (with library so-name), e.g.
+    // The dependency name is the library's soname without the "lib" prefix and ".so.MAJOR" suffix.
+    // The value is a path to the library file, e.g.:
     //
+    // ```ason
     // libraries: [
     //    "hello": library::local({
     //        path: "~/myprojects/hello/output/libhello.so.1"
     //      })
     // ]
+    // ```
     //
-    // notes that the format of "so-name" is "libfoo.so.MAJOR_VERSION_NUMBER",
-    // do not confuse it with the "real-name" (e.g. "libfoo.so.MAJOR.MINOR") and the
-    // "link name" (e.g. "libfoo.so").
+    // Note: The difference between soname, real name, and link name:
+    // - soname: "libNAME.so.MAJOR"
+    // - real name: "libNAME.so.MAJOR.MINOR.PATCH"
+    // - link name: "libNAME.so" (the linker likes "ld" and "lld" only use the NAME part)
     Local = 0x0,
 
-    // library from a remote GIT repository
+    // Library from a remote Git repository.
     //
-    // e.g.
+    // Example:
     //
+    // ```ason
     // libraries: [
-    //   "lz4": library::remote(
-    //     {
+    //   "lz4": library::remote({
     //       url: "https://github.com/hemashushu/xiaoxuan-cc-lz4.git",
     //       revision: "commit/tag",
     //     })
     // ]
-    //
-    // see also `ModuleDependentType::Remote`
+    // ```
     Remote,
 
-    // library from the central registry
+    // Library from the central registry.
     //
-    // an example of this type:
+    // Example:
     //
+    // ```ason
     // libraries: [
-    //   "zlib": library::share(
-    //     {
+    //   "zlib": library::share({
     //       version: "{major.minor.patch}"
     //     })
     // ]
-    //
-    // this type of library is downloaded and cached to a local directory, e.g.
-    // "{/usr/lib/ancc, /usr/local/lib/ancc, ~/.ancc}/modules/libname/VERSION"
+    // ```
     Share,
 
-    // library from system
+    // Library from the system.
     //
-    // the dependency name is the library's soname removes "lib" prefix and
-    // ".so.N" suffix, e.g. "lz4", and the value is library's soname, e.g. "liblz4.so.1".
+    // The dependency name is the library's soname without the "lib" prefix and ".so.N" suffix.
     //
-    // e.g.
+    // Example:
+    //
+    // ```ason
     // libraries: [
     //   "lz4": library::system("liblz4.so.1")
     // ]
+    // ```
     System,
 }
 
@@ -584,16 +515,17 @@ pub enum ExternalLibraryDependency {
 #[serde(rename = "local")]
 pub struct DependencyLocal {
     /// The module's path relative to the application (or module project) folder.
-    /// It could also be a path of the file "*.so.VERSION" relative to the application
-    /// if the dependency is external library.
+    /// It could also be a path of the file "lib*.so.VERSION" relative to the application
+    /// if the dependency is an external library.
     pub path: String,
 
-    /// the default value is []
+    /// Optional.
+    /// The default value is [].
     #[serde(default)]
     pub parameters: HashMap<String, ParameterValue>,
 
-    /// Optional
-    /// the default value is DependencyCondition::True
+    /// Optional.
+    /// The default value is DependencyCondition::True.
     #[serde(default)]
     pub condition: DependencyCondition,
 }
@@ -601,19 +533,19 @@ pub struct DependencyLocal {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "remote")]
 pub struct DependencyRemote {
-    /// Git repository URL, should be "https" protocol
+    /// Git repository URL, should use the "https" protocol.
     pub url: String,
 
-    /// Git commit or tag
+    /// Git commit or tag.
     pub reversion: String,
 
-    /// Optional
-    /// the default value is []
+    /// Optional.
+    /// The default value is [].
     #[serde(default)]
     pub parameters: HashMap<String, ParameterValue>,
 
-    /// Optional
-    /// the default value is DependencyCondition::True
+    /// Optional.
+    /// The default value is DependencyCondition::True.
     #[serde(default)]
     pub condition: DependencyCondition,
 }
@@ -621,16 +553,16 @@ pub struct DependencyRemote {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "share")]
 pub struct DependencyShare {
-    /// Semver e.g. "1.0.1"
+    /// Semver, e.g., "1.0.1".
     pub version: String,
 
-    /// Optional
-    /// the default value is []
+    /// Optional.
+    /// The default value is [].
     #[serde(default)]
     pub parameters: HashMap<String, ParameterValue>,
 
-    /// Optional
-    /// the default value is DependencyCondition::True
+    /// Optional.
+    /// The default value is DependencyCondition::True.
     #[serde(default)]
     pub condition: DependencyCondition,
 }
@@ -690,20 +622,20 @@ impl Display for ExternalLibraryDependencyType {
     }
 }
 
-// the error in Rust
+// The error in Rust
 // -----------------
 //
-// sometimes you may want to get a specified type from 'dyn RuntimeError',
-// there is a approach to downcast the 'dyn RuntimeError' object to a specified type, e.g.
+// Sometimes you may want to get a specified type from 'dyn RuntimeError'.
+// You can downcast the 'dyn RuntimeError' object to a specified type, e.g.:
 //
 // let some_error:T = unsafe {
 //     &*(runtime_error as *const dyn RuntimeError as *const T)
 // };
 //
-// the 'runtime_error' is a 'fat' pointer, it consists of a pointer to the data and
-// a another pointer to the 'vtable'.
+// The 'runtime_error' is a 'fat' pointer, consisting of a pointer to the data and
+// another pointer to the 'vtable'.
 //
-// BTW, the slice object is also a 'fat' pointer, e.g.
+// P.S., the slice object is also a 'fat' pointer, e.g.
 //
 // let v:Vec<u8> = vec![1,2,3];
 // let p_fat = &v[..] as *const _;     // this is a fat pointer
@@ -717,7 +649,7 @@ impl Display for ExternalLibraryDependencyType {
 //     .downcast_ref::<T>()
 //     .expect("...");
 //
-// ref:
+// References:
 // - https://alschwalm.com/blog/static/2017/03/07/exploring-dynamic-dispatch-in-rust/
 // - https://geo-ant.github.io/blog/2023/rust-dyn-trait-objects-fat-pointers/
 // - https://doc.rust-lang.org/std/any/
@@ -805,7 +737,7 @@ mod tests {
             VersionCompatibility::Conflict
         );
 
-        // zero-major
+        // Zero-major
         assert_eq!(
             EffectiveVersion::from_str("0.2.3").compatible(&EffectiveVersion::from_str("0.2.3")),
             VersionCompatibility::Equals
