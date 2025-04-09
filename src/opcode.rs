@@ -56,15 +56,15 @@
 // example   0       01111100            0100000000 0000000000 000     value = (-1)^0 * 1.25 * 2^(-3) = 0.15625
 //
 // Supported Variants:
-//  Y        -       00000001--\
+//  Yes      -       00000001--\
 //                   11111110--/         ---------- ---------- ---     Normal number
-//  Y        0       00000000            0000000000 0000000000 000     Value = +0
-//  N        1       00000000            0000000000 0000000000 000     Value = -0
-//  Y        -       00000000            ---------- ---------- ---     Subnormal number (i.e., numbers between 0 and MIN)
-//  N        0       11111111            0000000000 0000000000 000     Value = +Infinity
-//  N        1       11111111            0000000000 0000000000 000     Value = -Infinity
-//  N        -       11111111            0-not-all- -zero----- ---     NaN (SNaN)
-//  N        -       11111111            1-------- ----------- ---     NaN (QNaN)
+//  Yes      0       00000000            0000000000 0000000000 000     Value = +0
+//  Yes      1       00000000            0000000000 0000000000 000     Value = -0
+//  Yes      -       00000000            ---------- ---------- ---     Subnormal number (i.e., numbers between 0 and MIN)
+//  No       0       11111111            0000000000 0000000000 000     Value = +Infinity
+//  No       1       11111111            0000000000 0000000000 000     Value = -Infinity
+//  No       -       11111111            0-not-all- -zero----- ---     NaN (SNaN)
+//  No       -       11111111            1-------- ----------- ---     NaN (QNaN)
 //
 // Reference:
 // Convert floating-point to decimal/hexadecimal: https://www.h-schmidt.net/FloatConverter/IEEE754.html
@@ -90,7 +90,7 @@
 //   * 1.0 ÷ 0.0 = +Inf instead of throwing an exception
 //   * -1.0 ÷ 0.0 = -Inf, and 1.0 ÷ -0.0 = -Inf instead of throwing an exception
 //   * 0.0 ÷ 0.0 = NaN instead of throwing an exception
-//   * +Inf != -Inf, but 0.0 == -0.0
+//   * +Inf != -Inf, 0.0 == -0.0
 //
 // ref:
 //
@@ -104,13 +104,13 @@
 // - https://doc.rust-lang.org/std/primitive.f32.html
 //
 // To simplify the XiaoXuan Core programming language, the f32 and f64 types in the XiaoXuan Core VM
-// only support normal (including subnormal) floating-point numbers and +0.
-// Other variants (such as NaN, -0.0, +Inf, -Inf) are not supported.
+// only support normal (including subnormal) floating-point numbers +0 and -0.
+// Other variants (such as NaN, +Inf, -Inf) are not supported.
 //
 // | variant | memory presentation | support? |
 // |---------|---------------------|----------|
 // |  0.0    | 0x0000_0000         | Yes      |
-// | -0.0    | 0x8000_0000         | No       |
+// | -0.0    | 0x8000_0000         | Yes      |
 // |  NaN    | 0xffc0_0000         | No       |
 // | +Inf    | 0x7f80_0000         | No       |
 // | -Inf    | 0xff80_0000         | No       |
@@ -118,10 +118,10 @@
 // When loading data from memory as a floating-point number, the following checks are performed:
 //
 // 1. If the exponent is between (00000001) and (11111110): Pass
-// 2. If the exponent is zero and the sign bit is zero: Pass
+// 2. If the exponent is zero: Pass
 // 3. Otherwise: Fail
 //
-// In other words, when loading `+/-Infinity`, `-0`, or `NaN` from memory, the VM will throw exceptions.
+// In other words, when loading `+/-Infinity`, or `NaN` from memory, the VM will throw exceptions.
 
 // Boolean Type
 // ------------
@@ -380,9 +380,10 @@ pub enum Opcode {
     //
     // Note:
     // - For objects determined before compilation (e.g., functions, types/signatures, data, and local variables),
-    //   the index values are generally continuous numbers.
-    // - However, the index of dynamically allocated memory is not necessarily sequential.
-    //   Its value is determined by the VM's implementation, making this index more like an identifier than a sequential number.
+    //   the index values are generally continuous numbers. However, the index of dynamically allocated memory
+    //   is not necessarily sequential. Its value is determined by the VM's implementation,
+    //   making this index more like an identifier than a sequential number.
+    // - The index should be unique within the VM scope.
 
     // Load Data
     // ---------
@@ -470,16 +471,6 @@ pub enum Opcode {
 
     // Free an existing memory chunk.
     memory_free, // () (operand data_public_index:i32) -> ()
-
-    // Fill a specified memory region with a given value.
-    //
-    // () (operand data_public_index:i32 value:i8 count:i64) -> ()
-    memory_fill,
-
-    // Copy a specified memory region to another location.
-    //
-    // () (operand dst_data_public_index:i32 src_data_public_index:i32 count:i64) -> ()
-    memory_copy,
 
     // Category: Conversion
     // --------------------
@@ -1887,6 +1878,7 @@ pub enum Opcode {
     // (param function_public_index:i32) -> i64
     host_addr_function,
 
+    /*
     // Copies data from VM memory to host memory.
     //
     // () (operand dst_pointer:i64 src_pointer:i64 count:i64) -> ()
@@ -1903,6 +1895,7 @@ pub enum Opcode {
     //
     // () (operand dst_pointer:i64 src_pointer:i64 count:i64) -> ()
     host_external_memory_copy,
+    */
 }
 
 impl Opcode {
@@ -2004,8 +1997,10 @@ impl Opcode {
             Opcode::memory_allocate => "memory_allocate",
             Opcode::memory_resize => "memory_resize",
             Opcode::memory_free => "memory_free",
+            /*
             Opcode::memory_fill => "memory_fill",
             Opcode::memory_copy => "memory_copy",
+            */
             //
             Opcode::truncate_i64_to_i32 => "truncate_i64_to_i32",
             Opcode::extend_i32_s_to_i64 => "extend_i32_s_to_i64",
@@ -2201,16 +2196,18 @@ impl Opcode {
             Opcode::get_function => "get_function",
             Opcode::get_data => "get_data",
             //
+            Opcode::host_addr_function => "host_addr_function",
             Opcode::host_addr_local => "host_addr_local",
             Opcode::host_addr_local_extend => "host_addr_local_extend",
             Opcode::host_addr_data => "host_addr_data",
             Opcode::host_addr_data_extend => "host_addr_data_extend",
             Opcode::host_addr_data_dynamic => "host_addr_data_dynamic",
             //
+            /*
             Opcode::host_copy_from_data => "host_copy_from_data",
             Opcode::host_copy_to_data => "host_copy_to_data",
             Opcode::host_external_memory_copy => "host_external_memory_copy",
-            Opcode::host_addr_function => "host_addr_function",
+            */
         }
     }
 
@@ -2310,8 +2307,10 @@ impl Opcode {
             "memory_allocate" => Opcode::memory_allocate,
             "memory_resize" => Opcode::memory_resize,
             "memory_free" => Opcode::memory_free,
+            /*
             "memory_fill" => Opcode::memory_fill,
             "memory_copy" => Opcode::memory_copy,
+            */
             //
             "truncate_i64_to_i32" => Opcode::truncate_i64_to_i32,
             "extend_i32_s_to_i64" => Opcode::extend_i32_s_to_i64,
@@ -2507,16 +2506,18 @@ impl Opcode {
             "get_function" => Opcode::get_function,
             "get_data" => Opcode::get_data,
             //
+            "host_addr_function" => Opcode::host_addr_function,
             "host_addr_local" => Opcode::host_addr_local,
             "host_addr_local_extend" => Opcode::host_addr_local_extend,
             "host_addr_data" => Opcode::host_addr_data,
             "host_addr_data_extend" => Opcode::host_addr_data_extend,
             "host_addr_data_dynamic" => Opcode::host_addr_data_dynamic,
             //
+            /*
             "host_copy_from_data" => Opcode::host_copy_from_data,
             "host_copy_to_data" => Opcode::host_copy_to_data,
             "host_external_memory_copy" => Opcode::host_external_memory_copy,
-            "host_addr_function" => Opcode::host_addr_function,
+            */
             //
             _ => panic!("Unknown instruction \"{}\".", name),
         }
