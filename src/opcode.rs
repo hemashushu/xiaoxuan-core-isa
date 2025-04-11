@@ -168,7 +168,7 @@
 // Note: When an instruction contains i32 parameters, it will be aligned to 32 bits (4 bytes).
 // If alignment is required, a `nop` instruction will be automatically inserted before such instructions.
 //
-// Simplified encoding table:
+// Instruction encoding table:
 //
 // | length  | encoding layout                                                             |
 // |---------|-----------------------------------------------------------------------------|
@@ -383,7 +383,7 @@ pub enum Opcode {
     //   the index values are generally continuous numbers. However, the index of dynamically allocated memory
     //   is not necessarily sequential. Its value is determined by the VM's implementation,
     //   making this index more like an identifier than a sequential number.
-    // - The index should be unique within the VM scope.
+    // - The index should be unique within the VM scope, but it maybe reused for dynamically allocated memory.
 
     // Load Data
     // ---------
@@ -467,7 +467,7 @@ pub enum Opcode {
     memory_allocate = 0x0200, // () (operand align_in_bytes:i16 size_in_bytes:i64) -> i32
 
     // Resize an existing memory chunk.
-    memory_resize, // () (operand data_public_index:i32 size_in_bytes:i64) -> i32
+    memory_resize, // () (operand data_public_index:i32 new_size_in_bytes:i64) -> i32
 
     // Free an existing memory chunk.
     memory_free, // () (operand data_public_index:i32) -> ()
