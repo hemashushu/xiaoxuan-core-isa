@@ -179,7 +179,7 @@
 // | 64-bit  | [opcode 16-bit] - [param i16    ] + [param i16] + [param i16]               |
 // | 96-bit  | [opcode 16-bit] - [pading 16-bit] + [param i32] + [param i32]               |
 // | 128-bit | [opcode 16-bit] - [pading 16-bit] + [param i32] + [param i32] + [param i32] |
-//
+
 // Opcode Encoding
 // ----------------
 //
@@ -203,7 +203,7 @@
 // The 'index' carries information about the kind, data type, length (boundary), and other properties of the object.
 // For example, when accessing data using an index, the VM can verify the type and range to ensure safety.
 
-pub const MAX_OPCODE_NUMBER: usize = 0x480;
+pub const MAX_OPCODE_NUMBER: usize = 0x0c_00;
 
 #[repr(u16)]
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -217,20 +217,14 @@ pub enum Opcode {
     // This is typically used as a padding instruction to ensure 32-bit (4-byte) alignment.
     //
     // () -> ()
-    nop = 0x0100,
-
-    // Terminates the current process (program) immediately.
-    // This is generally used in cases where an unrecoverable error is encountered.
-    //
-    // (param terminate_code:i32) -> NERVER_RETURN
-    terminate,
+    nop = 0x01_00,
 
     // Pushes an immediate number onto the top of the operand stack.
     //
     // Note: The i32 immediate number will be internally sign-extended to i64 automatically.
     //
     // (param immediate_number:i32) -> i32
-    imm_i32 = 0x0140,
+    imm_i32,
 
     // `imm_i64`, `imm_f32`, and `imm_f64` are pseudo-instructions because the VM instructions
     // do not directly support i64, f32, or f64 parameters.
@@ -273,7 +267,7 @@ pub enum Opcode {
     // - In the default VM implementation, all local variables are 8-byte aligned. This is because local
     //   variables are allocated on the stack, which is also 8-byte aligned.
     //
-    local_load_i64 = 0x0180, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i64
+    local_load_i64 = 0x02_00, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i64
     local_load_i32_s, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i32
     local_load_i32_u, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i32
     local_load_i16_s, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i16
@@ -389,13 +383,13 @@ pub enum Opcode {
     // ---------
     // Note: All loaded data, except i64, will be sign-extended to i64.
     //
-    data_load_i64 = 0x01c0, // (param offset_bytes:i16 data_public_index:i32) -> i64
-    data_load_i32_s,        // (param offset_bytes:i16 data_public_index:i32) -> i32
-    data_load_i32_u,        // (param offset_bytes:i16 data_public_index:i32) -> i32
-    data_load_i16_s,        // (param offset_bytes:i16 data_public_index:i32) -> i16
-    data_load_i16_u,        // (param offset_bytes:i16 data_public_index:i32) -> i16
-    data_load_i8_s,         // (param offset_bytes:i16 data_public_index:i32) -> i8
-    data_load_i8_u,         // (param offset_bytes:i16 data_public_index:i32) -> i8
+    data_load_i64 = 0x03_00, // (param offset_bytes:i16 data_public_index:i32) -> i64
+    data_load_i32_s,         // (param offset_bytes:i16 data_public_index:i32) -> i32
+    data_load_i32_u,         // (param offset_bytes:i16 data_public_index:i32) -> i32
+    data_load_i16_s,         // (param offset_bytes:i16 data_public_index:i32) -> i16
+    data_load_i16_u,         // (param offset_bytes:i16 data_public_index:i32) -> i16
+    data_load_i8_s,          // (param offset_bytes:i16 data_public_index:i32) -> i8
+    data_load_i8_u,          // (param offset_bytes:i16 data_public_index:i32) -> i8
 
     // Load a 64-bit floating-point number (f64) with a floating-point validity check.
     //
@@ -455,227 +449,6 @@ pub enum Opcode {
     data_store_dynamic_f64, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:f64) -> (remain_values)
     data_store_dynamic_f32, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:f32) -> (remain_values)
 
-    // Category: Memory
-    // -----------------
-
-    // Allocate a new memory chunk and return a data public index.
-    //
-    // Notes:
-    // - The index of the memory chunk is not necessarily sequential.
-    // - Both alignment and size must be multiples of 8.
-    // - If the `align` parameter is 0, the default value of 8 is used.
-    memory_allocate = 0x0200, // () (operand align_in_bytes:i16 size_in_bytes:i64) -> i32
-
-    // Resize an existing memory chunk.
-    memory_resize, // () (operand data_public_index:i32 new_size_in_bytes:i64) -> i32
-
-    // Free an existing memory chunk.
-    memory_free, // () (operand data_public_index:i32) -> ()
-
-    // Category: Conversion
-    // --------------------
-
-    // Truncate a 64-bit integer (i64) to a 32-bit integer (i32).
-    // Discards the high 32 bits of the i64 value.
-    //
-    // () (operand number:i64) -> i32
-    truncate_i64_to_i32 = 0x0280,
-
-    // Sign-extend a 32-bit integer (i32) to a 64-bit integer (i64).
-    extend_i32_s_to_i64, // () (operand number:i32) -> i64
-
-    // Zero-extend a 32-bit integer (i32) to a 64-bit integer (i64).
-    extend_i32_u_to_i64, // () (operand number:i32) -> i64
-
-    // Convert a 64-bit floating-point number (f64) to a 32-bit floating-point number (f32).
-    // This operation may lose precision.
-    demote_f64_to_f32, // () (operand number:f64) -> f32
-
-    // Convert a 32-bit floating-point number (f32) to a 64-bit floating-point number (f64).
-    //
-    // () (operand number: f32) -> f64
-    promote_f32_to_f64, // () (operand number:f32) -> f64
-
-    // Convert a 32-bit floating-point number (f32) to a signed 32-bit integer (i32).
-    // The fractional part is truncated.
-    //
-    // () (operand number:f32) -> i32
-    convert_f32_to_i32_s,
-
-    // Convert a 32-bit floating-point number (f32) to an unsigned 32-bit integer (i32).
-    // The fractional part is truncated.
-    // Note: Negative values (-x.xx) will result in 0.
-    //
-    // () (operand number:f32) -> i32
-    convert_f32_to_i32_u,
-
-    // Convert a 64-bit floating-point number (f64) to a signed 32-bit integer (i32).
-    // The fractional part is truncated.
-    //
-    // () (operand number:f64) -> i32
-    convert_f64_to_i32_s,
-
-    // Convert a 64-bit floating-point number (f64) to an unsigned 32-bit integer (i32).
-    // The fractional part is truncated.
-    // Note: Negative values (-x.xx) will result in 0.
-    //
-    // () (operand number: f64) -> i32
-    convert_f64_to_i32_u,
-
-    // Convert a 32-bit floating-point number (f32) to a signed 64-bit integer (i64).
-    // The fractional part is truncated.
-    //
-    // () (operand number: f32) -> i64
-    convert_f32_to_i64_s,
-
-    // Convert a 32-bit floating-point number (f32) to an unsigned 64-bit integer (i64).
-    // The fractional part is truncated.
-    // Note: Negative values (-x.xx) will result in 0.
-    //
-    // () (operand number: f32) -> i64
-    convert_f32_to_i64_u,
-
-    // Convert a 64-bit floating-point number (f64) to a signed 64-bit integer (i64).
-    // The fractional part is truncated.
-    //
-    // () (operand number: f64) -> i64
-    convert_f64_to_i64_s,
-
-    // Convert a 64-bit floating-point number (f64) to an unsigned 64-bit integer (i64).
-    // The fractional part is truncated.
-    // Note: Negative values (-x.xx) will result in 0.
-    //
-    // () (operand number: f64) -> i64
-    convert_f64_to_i64_u,
-
-    // Convert a signed 32-bit integer (i32) to a 32-bit floating-point number (f32).
-    //
-    // () (operand number: i32) -> f32
-    convert_i32_s_to_f32,
-
-    // Convert an unsigned 32-bit integer (i32) to a 32-bit floating-point number (f32).
-    //
-    // () (operand number: i32) -> f32
-    convert_i32_u_to_f32,
-
-    // Convert a signed 64-bit integer (i64) to a 32-bit floating-point number (f32).
-    //
-    // () (operand number: i64) -> f32
-    convert_i64_s_to_f32,
-
-    // Convert an unsigned 64-bit integer (i64) to a 32-bit floating-point number (f32).
-    //
-    // () (operand number: i64) -> f32
-    convert_i64_u_to_f32,
-
-    // Convert a signed 32-bit integer (i32) to a 64-bit floating-point number (f64).
-    //
-    // () (operand number: i32) -> f64
-    convert_i32_s_to_f64,
-
-    // Convert an unsigned 32-bit integer (i32) to a 64-bit floating-point number (f64).
-    //
-    // () (operand number: i32) -> f64
-    convert_i32_u_to_f64,
-
-    // Convert a signed 64-bit integer (i64) to a 64-bit floating-point number (f64).
-    //
-    // () (operand number: i64) -> f64
-    convert_i64_s_to_f64,
-
-    // Convert an unsigned 64-bit integer (i64) to a 64-bit floating-point number (f64).
-    //
-    // () (operand number: i64) -> f64
-    convert_i64_u_to_f64,
-
-    // Category: Comparison
-    // --------------------
-
-    // Note: For binary operations, the first operand popped from the operand stack
-    // is the right-hand-side value, and the second operand is the left-hand-side value.
-    // For example:
-    //
-    // |                 | --> stack end
-    // | right-hand side | --> the 1st pop (right-hand-side value)
-    // | left-hand side  | --> the 2nd pop (left-hand-side value)
-    // \-----------------/ --> stack start
-    //
-    // This order matches the function parameter order. For example, the parameters
-    // of the function `add(a, b, c)` on the stack are as follows:
-    //
-    //  |   | --> stack end
-    //  | c |
-    //  | b |
-    //  | a |
-    //  \---/ --> stack start
-    //
-    // The two operands MUST be of the same data type for comparison instructions.
-    // The result of the comparison is a logical TRUE or FALSE. Specifically:
-    // - If the result is TRUE, the number `1 (type i64)` is pushed onto the operand stack.
-    // - If the result is FALSE, the number `0 (type i64)` is pushed onto the operand stack.
-    //
-    // Example of the `lt_i32_u` instruction:
-    //
-    // ```assembly
-    // ;; Load two numbers onto the stack
-    // imm_i32(11)
-    // imm_i32(22)
-    //
-    // ;; Now the layout of the operand stack is:
-    // ;; |    | --> stack end
-    // ;; | 22 |
-    // ;; | 11 |
-    // ;; \----/ --> stack start
-    //
-    // ;; `lt_i32_u` checks if '11' is less than '22'.
-    // ;; If true, `1 (type i64)` is pushed onto the operand stack.
-    // lt_i32_u()
-    //
-    // ;; Now the layout of the operand stack is:
-    // ;; |    | --> stack end
-    // ;; | 1  |
-    // ;; \----/ --> stack start
-    // ```
-    //
-    eqz_i32 = 0x02c0, // Checks if the operand is zero. () (operand number: i32) -> i64
-    nez_i32,          // Checks if the operand is non-zero. () (operand number: i32) -> i64
-    eq_i32, // Compares two i32 values for equality. () (operand left: i32, right: i32) -> i64
-    ne_i32, // Compares two i32 values for inequality. () (operand left: i32, right: i32) -> i64
-    lt_i32_s, // Checks if the left i32 value is less than the right (signed). () (operand left: i32, right: i32) -> i64
-    lt_i32_u, // Checks if the left i32 value is less than the right (unsigned). () (operand left: i32, right: i32) -> i64
-    gt_i32_s, // Checks if the left i32 value is greater than the right (signed). () (operand left: i32, right: i32) -> i64
-    gt_i32_u, // Checks if the left i32 value is greater than the right (unsigned). () (operand left: i32, right: i32) -> i64
-    le_i32_s, // Checks if the left i32 value is less than or equal to the right (signed). () (operand left: i32, right: i32) -> i64
-    le_i32_u, // Checks if the left i32 value is less than or equal to the right (unsigned). () (operand left: i32, right: i32) -> i64
-    ge_i32_s, // Checks if the left i32 value is greater than or equal to the right (signed). () (operand left: i32, right: i32) -> i64
-    ge_i32_u, // Checks if the left i32 value is greater than or equal to the right (unsigned). () (operand left: i32, right: i32) -> i64
-
-    eqz_i64,  // Checks if the operand is zero. () (operand number: i64) -> i64
-    nez_i64,  // Checks if the operand is non-zero. () (operand number: i64) -> i64
-    eq_i64,   // Compares two i64 values for equality. () (operand left: i64, right: i64) -> i64
-    ne_i64,   // Compares two i64 values for inequality. () (operand left: i64, right: i64) -> i64
-    lt_i64_s, // Checks if the left i64 value is less than the right (signed). () (operand left: i64, right: i64) -> i64
-    lt_i64_u, // Checks if the left i64 value is less than the right (unsigned). () (operand left: i64, right: i64) -> i64
-    gt_i64_s, // Checks if the left i64 value is greater than the right (signed). () (operand left: i64, right: i64) -> i64
-    gt_i64_u, // Checks if the left i64 value is greater than the right (unsigned). () (operand left: i64, right: i64) -> i64
-    le_i64_s, // Checks if the left i64 value is less than or equal to the right (signed). () (operand left: i64, right: i64) -> i64
-    le_i64_u, // Checks if the left i64 value is less than or equal to the right (unsigned). () (operand left: i64, right: i64) -> i64
-    ge_i64_s, // Checks if the left i64 value is greater than or equal to the right (signed). () (operand left: i64, right: i64) -> i64
-    ge_i64_u, // Checks if the left i64 value is greater than or equal to the right (unsigned). () (operand left: i64, right: i64) -> i64
-
-    eq_f32, // Compares two f32 values for equality. () (operand left: f32, right: f32) -> i64
-    ne_f32, // Compares two f32 values for inequality. () (operand left: f32, right: f32) -> i64
-    lt_f32, // Checks if the left f32 value is less than the right. () (operand left: f32, right: f32) -> i64
-    gt_f32, // Checks if the left f32 value is greater than the right. () (operand left: f32, right: f32) -> i64
-    le_f32, // Checks if the left f32 value is less than or equal to the right. () (operand left: f32, right: f32) -> i64
-    ge_f32, // Checks if the left f32 value is greater than or equal to the right. () (operand left: f32, right: f32) -> i64
-    eq_f64, // Compares two f64 values for equality. () (operand left: f64, right: f64) -> i64
-    ne_f64, // Compares two f64 values for inequality. () (operand left: f64, right: f64) -> i64
-    lt_f64, // Checks if the left f64 value is less than the right. () (operand left: f64, right: f64) -> i64
-    gt_f64, // Checks if the left f64 value is greater than the right. () (operand left: f64, right: f64) -> i64
-    le_f64, // Checks if the left f64 value is less than or equal to the right. () (operand left: f64, right: f64) -> i64
-    ge_f64, // Checks if the left f64 value is greater than or equal to the right. () (operand left: f64, right: f64) -> i64
-
     // Category: Arithmetic
     // --------------------
 
@@ -709,7 +482,7 @@ pub enum Opcode {
     // Wrapping addition, e.g., 0xffff_ffff + 2 = 1 (-1 + 2 = 1)
     //
     // () (operand left:i32 right:i32) -> i32
-    add_i32 = 0x0300,
+    add_i32 = 0x04_00,
 
     // Wrapping subtraction, e.g., 11 - 211 = -200
     //
@@ -925,10 +698,10 @@ pub enum Opcode {
     // ;; The top operand on the operand stack is 2
     // count_ones_i32()
     // ```
-    and = 0x0340, // Bitwise AND operation: () (operand left:i64, right:i64) -> i64
-    or,           // Bitwise OR operation: () (operand left:i64, right:i64) -> i64
-    xor,          // Bitwise XOR operation: () (operand left:i64, right:i64) -> i64
-    not,          // Bitwise NOT operation: () (operand number:i64) -> i64
+    and = 0x05_00, // Bitwise AND operation: () (operand left:i64, right:i64) -> i64
+    or,            // Bitwise OR operation: () (operand left:i64, right:i64) -> i64
+    xor,           // Bitwise XOR operation: () (operand left:i64, right:i64) -> i64
+    not,           // Bitwise NOT operation: () (operand number:i64) -> i64
 
     shift_left_i32, // Left shift: () (operand number:i32, move_bits:i32) -> i32, move_bits = [0, 32)
     shift_right_i32_s, // Arithmetic right shift: () (operand number:i32, move_bits:i32) -> i32, move_bits = [0, 32)
@@ -960,7 +733,7 @@ pub enum Opcode {
     // Absolute value for i32
     //
     // () (operand number:i32) -> i32
-    abs_i32 = 0x0380,
+    abs_i32 = 0x06_00,
 
     // Negation for i32
     //
@@ -1246,6 +1019,210 @@ pub enum Opcode {
     // () (operand number:f64 base:f64) -> f64
     log_f64,
 
+    // Category: Conversion
+    // --------------------
+
+    // Truncate a 64-bit integer (i64) to a 32-bit integer (i32).
+    // Discards the high 32 bits of the i64 value.
+    //
+    // () (operand number:i64) -> i32
+    truncate_i64_to_i32 = 0x07_00,
+
+    // Sign-extend a 32-bit integer (i32) to a 64-bit integer (i64).
+    extend_i32_s_to_i64, // () (operand number:i32) -> i64
+
+    // Zero-extend a 32-bit integer (i32) to a 64-bit integer (i64).
+    extend_i32_u_to_i64, // () (operand number:i32) -> i64
+
+    // Convert a 64-bit floating-point number (f64) to a 32-bit floating-point number (f32).
+    // This operation may lose precision.
+    demote_f64_to_f32, // () (operand number:f64) -> f32
+
+    // Convert a 32-bit floating-point number (f32) to a 64-bit floating-point number (f64).
+    //
+    // () (operand number: f32) -> f64
+    promote_f32_to_f64, // () (operand number:f32) -> f64
+
+    // Convert a 32-bit floating-point number (f32) to a signed 32-bit integer (i32).
+    // The fractional part is truncated.
+    //
+    // () (operand number:f32) -> i32
+    convert_f32_to_i32_s,
+
+    // Convert a 32-bit floating-point number (f32) to an unsigned 32-bit integer (i32).
+    // The fractional part is truncated.
+    // Note: Negative values (-x.xx) will result in 0.
+    //
+    // () (operand number:f32) -> i32
+    convert_f32_to_i32_u,
+
+    // Convert a 64-bit floating-point number (f64) to a signed 32-bit integer (i32).
+    // The fractional part is truncated.
+    //
+    // () (operand number:f64) -> i32
+    convert_f64_to_i32_s,
+
+    // Convert a 64-bit floating-point number (f64) to an unsigned 32-bit integer (i32).
+    // The fractional part is truncated.
+    // Note: Negative values (-x.xx) will result in 0.
+    //
+    // () (operand number: f64) -> i32
+    convert_f64_to_i32_u,
+
+    // Convert a 32-bit floating-point number (f32) to a signed 64-bit integer (i64).
+    // The fractional part is truncated.
+    //
+    // () (operand number: f32) -> i64
+    convert_f32_to_i64_s,
+
+    // Convert a 32-bit floating-point number (f32) to an unsigned 64-bit integer (i64).
+    // The fractional part is truncated.
+    // Note: Negative values (-x.xx) will result in 0.
+    //
+    // () (operand number: f32) -> i64
+    convert_f32_to_i64_u,
+
+    // Convert a 64-bit floating-point number (f64) to a signed 64-bit integer (i64).
+    // The fractional part is truncated.
+    //
+    // () (operand number: f64) -> i64
+    convert_f64_to_i64_s,
+
+    // Convert a 64-bit floating-point number (f64) to an unsigned 64-bit integer (i64).
+    // The fractional part is truncated.
+    // Note: Negative values (-x.xx) will result in 0.
+    //
+    // () (operand number: f64) -> i64
+    convert_f64_to_i64_u,
+
+    // Convert a signed 32-bit integer (i32) to a 32-bit floating-point number (f32).
+    //
+    // () (operand number: i32) -> f32
+    convert_i32_s_to_f32,
+
+    // Convert an unsigned 32-bit integer (i32) to a 32-bit floating-point number (f32).
+    //
+    // () (operand number: i32) -> f32
+    convert_i32_u_to_f32,
+
+    // Convert a signed 64-bit integer (i64) to a 32-bit floating-point number (f32).
+    //
+    // () (operand number: i64) -> f32
+    convert_i64_s_to_f32,
+
+    // Convert an unsigned 64-bit integer (i64) to a 32-bit floating-point number (f32).
+    //
+    // () (operand number: i64) -> f32
+    convert_i64_u_to_f32,
+
+    // Convert a signed 32-bit integer (i32) to a 64-bit floating-point number (f64).
+    //
+    // () (operand number: i32) -> f64
+    convert_i32_s_to_f64,
+
+    // Convert an unsigned 32-bit integer (i32) to a 64-bit floating-point number (f64).
+    //
+    // () (operand number: i32) -> f64
+    convert_i32_u_to_f64,
+
+    // Convert a signed 64-bit integer (i64) to a 64-bit floating-point number (f64).
+    //
+    // () (operand number: i64) -> f64
+    convert_i64_s_to_f64,
+
+    // Convert an unsigned 64-bit integer (i64) to a 64-bit floating-point number (f64).
+    //
+    // () (operand number: i64) -> f64
+    convert_i64_u_to_f64,
+
+    // Category: Comparison
+    // --------------------
+
+    // Note: For binary operations, the first operand popped from the operand stack
+    // is the right-hand-side value, and the second operand is the left-hand-side value.
+    // For example:
+    //
+    // |                 | --> stack end
+    // | right-hand side | --> the 1st pop (right-hand-side value)
+    // | left-hand side  | --> the 2nd pop (left-hand-side value)
+    // \-----------------/ --> stack start
+    //
+    // This order matches the function parameter order. For example, the parameters
+    // of the function `add(a, b, c)` on the stack are as follows:
+    //
+    //  |   | --> stack end
+    //  | c |
+    //  | b |
+    //  | a |
+    //  \---/ --> stack start
+    //
+    // The two operands MUST be of the same data type for comparison instructions.
+    // The result of the comparison is a logical TRUE or FALSE. Specifically:
+    // - If the result is TRUE, the number `1 (type i64)` is pushed onto the operand stack.
+    // - If the result is FALSE, the number `0 (type i64)` is pushed onto the operand stack.
+    //
+    // Example of the `lt_i32_u` instruction:
+    //
+    // ```assembly
+    // ;; Load two numbers onto the stack
+    // imm_i32(11)
+    // imm_i32(22)
+    //
+    // ;; Now the layout of the operand stack is:
+    // ;; |    | --> stack end
+    // ;; | 22 |
+    // ;; | 11 |
+    // ;; \----/ --> stack start
+    //
+    // ;; `lt_i32_u` checks if '11' is less than '22'.
+    // ;; If true, `1 (type i64)` is pushed onto the operand stack.
+    // lt_i32_u()
+    //
+    // ;; Now the layout of the operand stack is:
+    // ;; |    | --> stack end
+    // ;; | 1  |
+    // ;; \----/ --> stack start
+    // ```
+    //
+    eqz_i32 = 0x08_00, // Checks if the operand is zero. () (operand number: i32) -> i64
+    nez_i32,           // Checks if the operand is non-zero. () (operand number: i32) -> i64
+    eq_i32, // Compares two i32 values for equality. () (operand left: i32, right: i32) -> i64
+    ne_i32, // Compares two i32 values for inequality. () (operand left: i32, right: i32) -> i64
+    lt_i32_s, // Checks if the left i32 value is less than the right (signed). () (operand left: i32, right: i32) -> i64
+    lt_i32_u, // Checks if the left i32 value is less than the right (unsigned). () (operand left: i32, right: i32) -> i64
+    gt_i32_s, // Checks if the left i32 value is greater than the right (signed). () (operand left: i32, right: i32) -> i64
+    gt_i32_u, // Checks if the left i32 value is greater than the right (unsigned). () (operand left: i32, right: i32) -> i64
+    le_i32_s, // Checks if the left i32 value is less than or equal to the right (signed). () (operand left: i32, right: i32) -> i64
+    le_i32_u, // Checks if the left i32 value is less than or equal to the right (unsigned). () (operand left: i32, right: i32) -> i64
+    ge_i32_s, // Checks if the left i32 value is greater than or equal to the right (signed). () (operand left: i32, right: i32) -> i64
+    ge_i32_u, // Checks if the left i32 value is greater than or equal to the right (unsigned). () (operand left: i32, right: i32) -> i64
+
+    eqz_i64,  // Checks if the operand is zero. () (operand number: i64) -> i64
+    nez_i64,  // Checks if the operand is non-zero. () (operand number: i64) -> i64
+    eq_i64,   // Compares two i64 values for equality. () (operand left: i64, right: i64) -> i64
+    ne_i64,   // Compares two i64 values for inequality. () (operand left: i64, right: i64) -> i64
+    lt_i64_s, // Checks if the left i64 value is less than the right (signed). () (operand left: i64, right: i64) -> i64
+    lt_i64_u, // Checks if the left i64 value is less than the right (unsigned). () (operand left: i64, right: i64) -> i64
+    gt_i64_s, // Checks if the left i64 value is greater than the right (signed). () (operand left: i64, right: i64) -> i64
+    gt_i64_u, // Checks if the left i64 value is greater than the right (unsigned). () (operand left: i64, right: i64) -> i64
+    le_i64_s, // Checks if the left i64 value is less than or equal to the right (signed). () (operand left: i64, right: i64) -> i64
+    le_i64_u, // Checks if the left i64 value is less than or equal to the right (unsigned). () (operand left: i64, right: i64) -> i64
+    ge_i64_s, // Checks if the left i64 value is greater than or equal to the right (signed). () (operand left: i64, right: i64) -> i64
+    ge_i64_u, // Checks if the left i64 value is greater than or equal to the right (unsigned). () (operand left: i64, right: i64) -> i64
+
+    eq_f32, // Compares two f32 values for equality. () (operand left: f32, right: f32) -> i64
+    ne_f32, // Compares two f32 values for inequality. () (operand left: f32, right: f32) -> i64
+    lt_f32, // Checks if the left f32 value is less than the right. () (operand left: f32, right: f32) -> i64
+    gt_f32, // Checks if the left f32 value is greater than the right. () (operand left: f32, right: f32) -> i64
+    le_f32, // Checks if the left f32 value is less than or equal to the right. () (operand left: f32, right: f32) -> i64
+    ge_f32, // Checks if the left f32 value is greater than or equal to the right. () (operand left: f32, right: f32) -> i64
+    eq_f64, // Compares two f64 values for equality. () (operand left: f64, right: f64) -> i64
+    ne_f64, // Compares two f64 values for inequality. () (operand left: f64, right: f64) -> i64
+    lt_f64, // Checks if the left f64 value is less than the right. () (operand left: f64, right: f64) -> i64
+    gt_f64, // Checks if the left f64 value is greater than the right. () (operand left: f64, right: f64) -> i64
+    le_f64, // Checks if the left f64 value is less than or equal to the right. () (operand left: f64, right: f64) -> i64
+    ge_f64, // Checks if the left f64 value is greater than or equal to the right. () (operand left: f64, right: f64) -> i64
+
     // Category: Control flow
     // ----------------------
 
@@ -1255,7 +1232,7 @@ pub enum Opcode {
     // and the results of the current block or function are placed at the top of the operand stack.
     //
     // () -> NO_RETURN
-    end = 0x03c0,
+    end = 0x09_00,
 
     // The "block" instruction creates a new block scope.
     //
@@ -1269,7 +1246,7 @@ pub enum Opcode {
     // parameters are not treated as local variables (their values are placed directly on the operand stack),
     // and they cannot be accessed using "local_load_xxx/local_store_xxx" instructions.
     //
-    // (param type_index:i32, local_variable_list_index:i32) -> NO_RETURN
+    // (param type_index:i32 local_variable_list_index:i32) -> NO_RETURN
     block,
 
     // The "break" instruction is used to exit a block or function, similar to the "end" instruction.
@@ -1349,7 +1326,7 @@ pub enum Opcode {
     // The XiaoXuan Core "break" instruction balances performance and elegance by implying "end"
     // and directly jumping to the instruction after "end."
     //
-    // (param reversed_index:i16, next_inst_offset:i32) NO_RETURN
+    // (param reversed_index:i16 next_inst_offset:i32) NO_RETURN
     break_,
 
     // The "recur" instruction allows the VM to jump to the instruction immediately following
@@ -1403,7 +1380,7 @@ pub enum Opcode {
     // Parameter `start_inst_offset` is the address offset to the next instruction after "block". It is calculated as:
     // (address of "recur" - address of "block" + length of the "block" instruction).
     //
-    // (param reversed_index:i16, start_inst_offset:i32) -> NO_RETURN
+    // (param reversed_index:i16 start_inst_offset:i32) -> NO_RETURN
     recur,
 
     // The "block_alt" instruction is similar to the "block" instruction. It creates a new block scope
@@ -1445,7 +1422,7 @@ pub enum Opcode {
     // However, this instruction still has parameters `type_index` and `local_variable_list_index`,
     // leaving the user with a choice.
     //
-    // (param type_index:i32, local_variable_list_index:i32, next_inst_offset:i32) -> NO_RETURN
+    // (param type_index:i32 local_variable_list_index:i32 next_inst_offset:i32) -> NO_RETURN
     block_alt,
 
     // The "break_alt" instruction is used to exit the current "block_alt" scope.
@@ -1485,7 +1462,7 @@ pub enum Opcode {
     //
     // However, the instruction supports local variables, so it includes the `local_variable_list_index` parameter.
     //
-    // (param local_variable_list_index:i32, next_inst_offset:i32) NO_RETURN
+    // (param local_variable_list_index:i32 next_inst_offset:i32) NO_RETURN
     block_nez,
 
     // TCO (Tail Call Optimization)
@@ -1714,7 +1691,7 @@ pub enum Opcode {
     // General Function Call
     //
     // (param function_public_index:i32) (operand args...) -> (values)
-    call = 0x0400,
+    call,
 
     // Note about the `function_public_index`
     // --------------------------------------
@@ -1782,7 +1759,7 @@ pub enum Opcode {
     // let a = filter(list, predicate)
     // ```
     //
-    // () (operand function_public_index:i32, args...) -> (values)
+    // () (operand function_module_index:i32 function_public_index:i32 args...) -> (values)
     call_dynamic,
 
     // Environment Function Call
@@ -1817,7 +1794,7 @@ pub enum Opcode {
     //
     // Note: Unlike the C standard library, there is no "errno" when calling syscalls directly from assembly.
     //
-    // () (operand args..., syscall_num:i32, params_count: i32) -> (return_value:i64, error_number:i32)
+    // () (operand args... syscall_num:i32 params_count: i32) -> (return_value:i64 error_number:i32)
     syscall,
 
     // External Function Call
@@ -1830,17 +1807,64 @@ pub enum Opcode {
     // (param external_function_index:i32) (operand args...) -> return_value:void/i32/i64/f32/f64
     extcall,
 
+    // Category: Memory
+    // -----------------
+
+    // Allocate a new memory chunk and return a data public index.
+    //
+    // Notes:
+    // - The index of the memory chunk is not necessarily sequential.
+    // - Both alignment and size must be multiples of 8.
+    // - If the `align` parameter is 0, the default value of 8 is used.
+    // - The `module_index` of allocated memory is always 0.
+    //
+    // () (operand align_in_bytes:i16 size_in_bytes:i64) -> i32
+    memory_allocate = 0x0a_00,
+
+    // Resize an existing memory chunk.
+    //
+    // () (operand data_public_index:i32 new_size_in_bytes:i64) -> i32
+    memory_resize,
+
+    // Free an existing memory chunk.
+    //
+    // () (operand data_public_index:i32) -> ()
+    memory_free,
+
+    // Fill a memory chunk with a specified value.
+    //
+    // () (operand
+    // data_module_index:i32 data_public_index:i32 offset_in_bytes:i64
+    // size_in_bytes:i64 value:i8) -> ()
+    memory_fill,
+
+    // Copy a memory chunk from one location to another.
+    //
+    // Note: The source and destination memory chunks must not overlap.
+    //
+    // () (operand
+    // source_data_module_index:i32 source_data_public_index:i32 source_offset_in_bytes:i64
+    // dest_data_module_index:i32 dest_data_public_index:i32 dest_offset_in_bytes:i64
+    // size_in_bytes:i64 value:i8) -> ()
+    memory_copy,
+
     // Category: Machine
     // ------------------
 
+    // Terminates the current process (program) immediately.
+    // This is generally used in cases where an unrecoverable error is encountered.
+    //
+    // (param terminate_code:i32) -> NERVER_RETURN
+    terminate,
+
     // Pushes the module index and function public index onto the operand stack.
     //
-    // (param function_public_index:i32) -> (module_index:i32, function_public_index:i32)
-    get_function = 0x0440,
+    // (param function_public_index:i32) -> (function_module_index:i32 function_public_index:i32)
+    get_function = 0x0b_00,
 
     // Pushes the module index and data public index onto the operand stack.
     //
-    // (param data_public_index:i32) -> (module_index:i32, data_public_index:i32)
+    // (param data_public_index:i32) -> (data_module_index:i32 data_public_index:i32)
     get_data,
 
     // Retrieves the memory address of VM data.
@@ -1877,38 +1901,18 @@ pub enum Opcode {
     //
     // (param function_public_index:i32) -> i64
     host_addr_function,
-
-    /*
-    // Copies data from VM memory to host memory.
-    //
-    // () (operand dst_pointer:i64 src_pointer:i64 count:i64) -> ()
-    host_copy_from_data,
-
-    // Copies data from host memory to VM memory.
-    //
-    // () (operand dst_pointer:i64 src_pointer:i64 count:i64) -> ()
-    host_copy_to_data,
-
-    // Copies data between host memory regions.
-    //
-    // This instruction operates on the host's memory and is used to optimize collaboration between external functions.
-    //
-    // () (operand dst_pointer:i64 src_pointer:i64 count:i64) -> ()
-    host_external_memory_copy,
-    */
 }
 
 impl Opcode {
     pub fn get_name(&self) -> &'static str {
         match self {
+            // Category: Fundamental
             Opcode::nop => "nop",
-            Opcode::terminate => "terminate",
-            //
             Opcode::imm_i32 => "imm_i32",
             Opcode::imm_i64 => "imm_i64",
             Opcode::imm_f32 => "imm_f32",
             Opcode::imm_f64 => "imm_f64",
-            //
+            // Category: Local Variables
             Opcode::local_load_i64 => "local_load_64",
             Opcode::local_load_i32_s => "local_load_i32_s",
             Opcode::local_load_i32_u => "local_load_i32_u",
@@ -1918,14 +1922,12 @@ impl Opcode {
             Opcode::local_load_i8_u => "local_load_i8_u",
             Opcode::local_load_f64 => "local_load_f64",
             Opcode::local_load_f32 => "local_load_f32",
-            //
             Opcode::local_store_i64 => "local_store_i64",
             Opcode::local_store_i32 => "local_store_i32",
             Opcode::local_store_i16 => "local_store_i16",
             Opcode::local_store_i8 => "local_store_i8",
             Opcode::local_store_f64 => "local_store_f64",
             Opcode::local_store_f32 => "local_store_f32",
-            //
             Opcode::local_load_extend_i64 => "local_load_extend_i64",
             Opcode::local_load_extend_i32_s => "local_load_extend_i32_s",
             Opcode::local_load_extend_i32_u => "local_load_extend_i32_u",
@@ -1935,14 +1937,13 @@ impl Opcode {
             Opcode::local_load_extend_i8_u => "local_load_extend_i8_u",
             Opcode::local_load_extend_f64 => "local_load_extend_f64",
             Opcode::local_load_extend_f32 => "local_load_extend_f32",
-            //
             Opcode::local_store_extend_i64 => "local_store_extend_i64",
             Opcode::local_store_extend_i32 => "local_store_extend_i32",
             Opcode::local_store_extend_i16 => "local_store_extend_i16",
             Opcode::local_store_extend_i8 => "local_store_extend_i8",
             Opcode::local_store_extend_f64 => "local_store_extend_f64",
             Opcode::local_store_extend_f32 => "local_store_extend_f32",
-            //
+            // Category: Data
             Opcode::data_load_i64 => "data_load_i64",
             Opcode::data_load_i32_s => "data_load_i32_s",
             Opcode::data_load_i32_u => "data_load_i32_u",
@@ -1952,14 +1953,12 @@ impl Opcode {
             Opcode::data_load_i8_u => "data_load_i8_u",
             Opcode::data_load_f64 => "data_load_f64",
             Opcode::data_load_f32 => "data_load_f32",
-            //
             Opcode::data_store_i64 => "data_store_i64",
             Opcode::data_store_i32 => "data_store_i32",
             Opcode::data_store_i16 => "data_store_i16",
             Opcode::data_store_i8 => "data_store_i8",
             Opcode::data_store_f64 => "data_store_f64",
             Opcode::data_store_f32 => "data_store_f32",
-            //
             Opcode::data_load_extend_i64 => "data_load_extend_i64",
             Opcode::data_load_extend_i32_s => "data_load_extend_i32_s",
             Opcode::data_load_extend_i32_u => "data_load_extend_i32_u",
@@ -1969,14 +1968,12 @@ impl Opcode {
             Opcode::data_load_extend_i8_u => "data_load_extend_i8_u",
             Opcode::data_load_extend_f64 => "data_load_extend_f64",
             Opcode::data_load_extend_f32 => "data_load_extend_f32",
-            //
             Opcode::data_store_extend_i64 => "data_store_extend_i64",
             Opcode::data_store_extend_i32 => "data_store_extend_i32",
             Opcode::data_store_extend_i16 => "data_store_extend_i16",
             Opcode::data_store_extend_i8 => "data_store_extend_i8",
             Opcode::data_store_extend_f64 => "data_store_extend_f64",
             Opcode::data_store_extend_f32 => "data_store_extend_f32",
-            //
             Opcode::data_load_dynamic_i64 => "data_load_dynamic_i64",
             Opcode::data_load_dynamic_i32_s => "data_load_dynamic_i32_s",
             Opcode::data_load_dynamic_i32_u => "data_load_dynamic_i32_u",
@@ -1986,86 +1983,13 @@ impl Opcode {
             Opcode::data_load_dynamic_i8_u => "data_load_dynamic_i8_u",
             Opcode::data_load_dynamic_f64 => "data_load_dynamic_f64",
             Opcode::data_load_dynamic_f32 => "data_load_dynamic_f32",
-            //
             Opcode::data_store_dynamic_i64 => "data_store_dynamic_i64",
             Opcode::data_store_dynamic_i32 => "data_store_dynamic_i32",
             Opcode::data_store_dynamic_i16 => "data_store_dynamic_i16",
             Opcode::data_store_dynamic_i8 => "data_store_dynamic_i8",
             Opcode::data_store_dynamic_f64 => "data_store_dynamic_f64",
             Opcode::data_store_dynamic_f32 => "data_store_dynamic_f32",
-            //
-            Opcode::memory_allocate => "memory_allocate",
-            Opcode::memory_resize => "memory_resize",
-            Opcode::memory_free => "memory_free",
-            /*
-            Opcode::memory_fill => "memory_fill",
-            Opcode::memory_copy => "memory_copy",
-            */
-            //
-            Opcode::truncate_i64_to_i32 => "truncate_i64_to_i32",
-            Opcode::extend_i32_s_to_i64 => "extend_i32_s_to_i64",
-            Opcode::extend_i32_u_to_i64 => "extend_i32_u_to_i64",
-            Opcode::demote_f64_to_f32 => "demote_f64_to_f32",
-            Opcode::promote_f32_to_f64 => "promote_f32_to_f64",
-            //
-            Opcode::convert_f32_to_i32_s => "convert_f32_to_i32_s",
-            Opcode::convert_f32_to_i32_u => "convert_f32_to_i32_u",
-            Opcode::convert_f64_to_i32_s => "convert_f64_to_i32_s",
-            Opcode::convert_f64_to_i32_u => "convert_f64_to_i32_u",
-            Opcode::convert_f32_to_i64_s => "convert_f32_to_i64_s",
-            Opcode::convert_f32_to_i64_u => "convert_f32_to_i64_u",
-            Opcode::convert_f64_to_i64_s => "convert_f64_to_i64_s",
-            Opcode::convert_f64_to_i64_u => "convert_f64_to_i64_u",
-            //
-            Opcode::convert_i32_s_to_f32 => "convert_i32_s_to_f32",
-            Opcode::convert_i32_u_to_f32 => "convert_i32_u_to_f32",
-            Opcode::convert_i64_s_to_f32 => "convert_i64_s_to_f32",
-            Opcode::convert_i64_u_to_f32 => "convert_i64_u_to_f32",
-            Opcode::convert_i32_s_to_f64 => "convert_i32_s_to_f64",
-            Opcode::convert_i32_u_to_f64 => "convert_i32_u_to_f64",
-            Opcode::convert_i64_s_to_f64 => "convert_i64_s_to_f64",
-            Opcode::convert_i64_u_to_f64 => "convert_i64_u_to_f64",
-            //
-            Opcode::eqz_i32 => "eqz_i32",
-            Opcode::nez_i32 => "nez_i32",
-            Opcode::eq_i32 => "eq_i32",
-            Opcode::ne_i32 => "ne_i32",
-            Opcode::lt_i32_s => "lt_i32_s",
-            Opcode::lt_i32_u => "lt_i32_u",
-            Opcode::gt_i32_s => "gt_i32_s",
-            Opcode::gt_i32_u => "gt_i32_u",
-            Opcode::le_i32_s => "le_i32_s",
-            Opcode::le_i32_u => "le_i32_u",
-            Opcode::ge_i32_s => "ge_i32_s",
-            Opcode::ge_i32_u => "ge_i32_u",
-            //
-            Opcode::eqz_i64 => "eqz_i64",
-            Opcode::nez_i64 => "nez_i64",
-            Opcode::eq_i64 => "eq_i64",
-            Opcode::ne_i64 => "ne_i64",
-            Opcode::lt_i64_s => "lt_i64_s",
-            Opcode::lt_i64_u => "lt_i64_u",
-            Opcode::gt_i64_s => "gt_i64_s",
-            Opcode::gt_i64_u => "gt_i64_u",
-            Opcode::le_i64_s => "le_i64_s",
-            Opcode::le_i64_u => "le_i64_u",
-            Opcode::ge_i64_s => "ge_i64_s",
-            Opcode::ge_i64_u => "ge_i64_u",
-            //
-            Opcode::eq_f32 => "eq_f32",
-            Opcode::ne_f32 => "ne_f32",
-            Opcode::lt_f32 => "lt_f32",
-            Opcode::gt_f32 => "gt_f32",
-            Opcode::le_f32 => "le_f32",
-            Opcode::ge_f32 => "ge_f32",
-            //
-            Opcode::eq_f64 => "eq_f64",
-            Opcode::ne_f64 => "ne_f64",
-            Opcode::lt_f64 => "lt_f64",
-            Opcode::gt_f64 => "gt_f64",
-            Opcode::le_f64 => "le_f64",
-            Opcode::ge_f64 => "ge_f64",
-            //
+            // Category: Arithmetic
             Opcode::add_i32 => "add_i32",
             Opcode::sub_i32 => "sub_i32",
             Opcode::add_imm_i32 => "add_imm_i32",
@@ -2075,7 +1999,6 @@ impl Opcode {
             Opcode::div_i32_u => "div_i32_u",
             Opcode::rem_i32_s => "rem_i32_s",
             Opcode::rem_i32_u => "rem_i32_u",
-            //
             Opcode::add_i64 => "add_i64",
             Opcode::sub_i64 => "sub_i64",
             Opcode::add_imm_i64 => "add_imm_i64",
@@ -2085,22 +2008,19 @@ impl Opcode {
             Opcode::div_i64_u => "div_i64_u",
             Opcode::rem_i64_s => "rem_i64_s",
             Opcode::rem_i64_u => "rem_i64_u",
-            //
             Opcode::add_f32 => "add_f32",
             Opcode::sub_f32 => "sub_f32",
             Opcode::mul_f32 => "mul_f32",
             Opcode::div_f32 => "div_f32",
-            //
             Opcode::add_f64 => "add_f64",
             Opcode::sub_f64 => "sub_f64",
             Opcode::mul_f64 => "mul_f64",
             Opcode::div_f64 => "div_f64",
-            //
+            // Category: Bitwise
             Opcode::and => "and",
             Opcode::or => "or",
             Opcode::xor => "xor",
             Opcode::not => "not",
-            //
             Opcode::count_leading_zeros_i32 => "count_leading_zeros_i32",
             Opcode::count_leading_ones_i32 => "count_leading_ones_i32",
             Opcode::count_trailing_zeros_i32 => "count_trailing_zeros_i32",
@@ -2119,12 +2039,11 @@ impl Opcode {
             Opcode::shift_right_i64_u => "shift_right_i64_u",
             Opcode::rotate_left_i64 => "rotate_left_i64",
             Opcode::rotate_right_i64 => "rotate_right_i64",
-            //
+            // Category: Math
             Opcode::abs_i32 => "abs_i32",
             Opcode::neg_i32 => "neg_i32",
             Opcode::abs_i64 => "abs_i64",
             Opcode::neg_i64 => "neg_i64",
-            //
             Opcode::abs_f32 => "abs_f32",
             Opcode::neg_f32 => "neg_f32",
             Opcode::copysign_f32 => "copysign_f32",
@@ -2151,7 +2070,6 @@ impl Opcode {
             Opcode::atan_f32 => "atan_f32",
             Opcode::pow_f32 => "pow_f32",
             Opcode::log_f32 => "log_f32",
-            //
             Opcode::abs_f64 => "abs_f64",
             Opcode::neg_f64 => "neg_f64",
             Opcode::copysign_f64 => "copysign_f64",
@@ -2178,7 +2096,66 @@ impl Opcode {
             Opcode::atan_f64 => "atan_f64",
             Opcode::pow_f64 => "pow_f64",
             Opcode::log_f64 => "log_f64",
-            //
+            // Category: Conversion
+            Opcode::truncate_i64_to_i32 => "truncate_i64_to_i32",
+            Opcode::extend_i32_s_to_i64 => "extend_i32_s_to_i64",
+            Opcode::extend_i32_u_to_i64 => "extend_i32_u_to_i64",
+            Opcode::demote_f64_to_f32 => "demote_f64_to_f32",
+            Opcode::promote_f32_to_f64 => "promote_f32_to_f64",
+            Opcode::convert_f32_to_i32_s => "convert_f32_to_i32_s",
+            Opcode::convert_f32_to_i32_u => "convert_f32_to_i32_u",
+            Opcode::convert_f64_to_i32_s => "convert_f64_to_i32_s",
+            Opcode::convert_f64_to_i32_u => "convert_f64_to_i32_u",
+            Opcode::convert_f32_to_i64_s => "convert_f32_to_i64_s",
+            Opcode::convert_f32_to_i64_u => "convert_f32_to_i64_u",
+            Opcode::convert_f64_to_i64_s => "convert_f64_to_i64_s",
+            Opcode::convert_f64_to_i64_u => "convert_f64_to_i64_u",
+            Opcode::convert_i32_s_to_f32 => "convert_i32_s_to_f32",
+            Opcode::convert_i32_u_to_f32 => "convert_i32_u_to_f32",
+            Opcode::convert_i64_s_to_f32 => "convert_i64_s_to_f32",
+            Opcode::convert_i64_u_to_f32 => "convert_i64_u_to_f32",
+            Opcode::convert_i32_s_to_f64 => "convert_i32_s_to_f64",
+            Opcode::convert_i32_u_to_f64 => "convert_i32_u_to_f64",
+            Opcode::convert_i64_s_to_f64 => "convert_i64_s_to_f64",
+            Opcode::convert_i64_u_to_f64 => "convert_i64_u_to_f64",
+            // Category: Comparison
+            Opcode::eqz_i32 => "eqz_i32",
+            Opcode::nez_i32 => "nez_i32",
+            Opcode::eq_i32 => "eq_i32",
+            Opcode::ne_i32 => "ne_i32",
+            Opcode::lt_i32_s => "lt_i32_s",
+            Opcode::lt_i32_u => "lt_i32_u",
+            Opcode::gt_i32_s => "gt_i32_s",
+            Opcode::gt_i32_u => "gt_i32_u",
+            Opcode::le_i32_s => "le_i32_s",
+            Opcode::le_i32_u => "le_i32_u",
+            Opcode::ge_i32_s => "ge_i32_s",
+            Opcode::ge_i32_u => "ge_i32_u",
+            Opcode::eqz_i64 => "eqz_i64",
+            Opcode::nez_i64 => "nez_i64",
+            Opcode::eq_i64 => "eq_i64",
+            Opcode::ne_i64 => "ne_i64",
+            Opcode::lt_i64_s => "lt_i64_s",
+            Opcode::lt_i64_u => "lt_i64_u",
+            Opcode::gt_i64_s => "gt_i64_s",
+            Opcode::gt_i64_u => "gt_i64_u",
+            Opcode::le_i64_s => "le_i64_s",
+            Opcode::le_i64_u => "le_i64_u",
+            Opcode::ge_i64_s => "ge_i64_s",
+            Opcode::ge_i64_u => "ge_i64_u",
+            Opcode::eq_f32 => "eq_f32",
+            Opcode::ne_f32 => "ne_f32",
+            Opcode::lt_f32 => "lt_f32",
+            Opcode::gt_f32 => "gt_f32",
+            Opcode::le_f32 => "le_f32",
+            Opcode::ge_f32 => "ge_f32",
+            Opcode::eq_f64 => "eq_f64",
+            Opcode::ne_f64 => "ne_f64",
+            Opcode::lt_f64 => "lt_f64",
+            Opcode::gt_f64 => "gt_f64",
+            Opcode::le_f64 => "le_f64",
+            Opcode::ge_f64 => "ge_f64",
+            // Category: Control flow
             Opcode::end => "end",
             Opcode::block => "block",
             Opcode::break_ => "break",
@@ -2186,41 +2163,39 @@ impl Opcode {
             Opcode::block_alt => "block_alt",
             Opcode::break_alt => "break_alt",
             Opcode::block_nez => "block_nez",
-            //
             Opcode::call => "call",
             Opcode::call_dynamic => "call_dynamic",
             Opcode::envcall => "envcall",
             Opcode::syscall => "syscall",
             Opcode::extcall => "extcall",
-            //
+            // Category: Memory
+            Opcode::memory_allocate => "memory_allocate",
+            Opcode::memory_resize => "memory_resize",
+            Opcode::memory_free => "memory_free",
+            Opcode::memory_fill => "memory_fill",
+            Opcode::memory_copy => "memory_copy",
+            // Category: Machine
+            Opcode::terminate => "terminate",
             Opcode::get_function => "get_function",
             Opcode::get_data => "get_data",
-            //
             Opcode::host_addr_function => "host_addr_function",
             Opcode::host_addr_local => "host_addr_local",
             Opcode::host_addr_local_extend => "host_addr_local_extend",
             Opcode::host_addr_data => "host_addr_data",
             Opcode::host_addr_data_extend => "host_addr_data_extend",
             Opcode::host_addr_data_dynamic => "host_addr_data_dynamic",
-            //
-            /*
-            Opcode::host_copy_from_data => "host_copy_from_data",
-            Opcode::host_copy_to_data => "host_copy_to_data",
-            Opcode::host_external_memory_copy => "host_external_memory_copy",
-            */
         }
     }
 
     pub fn from_name(name: &str) -> Self {
         match name {
+            // Category: Fundamental
             "nop" => Opcode::nop,
-            "terminate" => Opcode::terminate,
-            //
             "imm_i32" => Opcode::imm_i32,
             "imm_i64" => Opcode::imm_i64,
             "imm_f32" => Opcode::imm_f32,
             "imm_f64" => Opcode::imm_f64,
-            //
+            // Category: Local Variables
             "local_load_i64" => Opcode::local_load_i64,
             "local_load_i32_s" => Opcode::local_load_i32_s,
             "local_load_i32_u" => Opcode::local_load_i32_u,
@@ -2236,7 +2211,6 @@ impl Opcode {
             "local_store_i8" => Opcode::local_store_i8,
             "local_store_f64" => Opcode::local_store_f64,
             "local_store_f32" => Opcode::local_store_f32,
-            //
             "local_load_extend_i64" => Opcode::local_load_extend_i64,
             "local_load_extend_i32_s" => Opcode::local_load_extend_i32_s,
             "local_load_extend_i32_u" => Opcode::local_load_extend_i32_u,
@@ -2246,14 +2220,13 @@ impl Opcode {
             "local_load_extend_i8_u" => Opcode::local_load_extend_i8_u,
             "local_load_extend_f64" => Opcode::local_load_extend_f64,
             "local_load_extend_f32" => Opcode::local_load_extend_f32,
-            //
             "local_store_extend_i64" => Opcode::local_store_extend_i64,
             "local_store_extend_i32" => Opcode::local_store_extend_i32,
             "local_store_extend_i16" => Opcode::local_store_extend_i16,
             "local_store_extend_i8" => Opcode::local_store_extend_i8,
             "local_store_extend_f64" => Opcode::local_store_extend_f64,
             "local_store_extend_f32" => Opcode::local_store_extend_f32,
-            //
+            // Category: Data
             "data_load_i64" => Opcode::data_load_i64,
             "data_load_i32_s" => Opcode::data_load_i32_s,
             "data_load_i32_u" => Opcode::data_load_i32_u,
@@ -2269,7 +2242,6 @@ impl Opcode {
             "data_store_i8" => Opcode::data_store_i8,
             "data_store_f64" => Opcode::data_store_f64,
             "data_store_f32" => Opcode::data_store_f32,
-            //
             "data_load_extend_i64" => Opcode::data_load_extend_i64,
             "data_load_extend_i32_s" => Opcode::data_load_extend_i32_s,
             "data_load_extend_i32_u" => Opcode::data_load_extend_i32_u,
@@ -2279,14 +2251,12 @@ impl Opcode {
             "data_load_extend_i8_u" => Opcode::data_load_extend_i8_u,
             "data_load_extend_f64" => Opcode::data_load_extend_f64,
             "data_load_extend_f32" => Opcode::data_load_extend_f32,
-            //
             "data_store_extend_i64" => Opcode::data_store_extend_i64,
             "data_store_extend_i32" => Opcode::data_store_extend_i32,
             "data_store_extend_i16" => Opcode::data_store_extend_i16,
             "data_store_extend_i8" => Opcode::data_store_extend_i8,
             "data_store_extend_f64" => Opcode::data_store_extend_f64,
             "data_store_extend_f32" => Opcode::data_store_extend_f32,
-            //
             "data_load_dynamic_i64" => Opcode::data_load_dynamic_i64,
             "data_load_dynamic_i32_s" => Opcode::data_load_dynamic_i32_s,
             "data_load_dynamic_i32_u" => Opcode::data_load_dynamic_i32_u,
@@ -2296,86 +2266,13 @@ impl Opcode {
             "data_load_dynamic_i8_u" => Opcode::data_load_dynamic_i8_u,
             "data_load_dynamic_f64" => Opcode::data_load_dynamic_f64,
             "data_load_dynamic_f32" => Opcode::data_load_dynamic_f32,
-            //
             "data_store_dynamic_i64" => Opcode::data_store_dynamic_i64,
             "data_store_dynamic_i32" => Opcode::data_store_dynamic_i32,
             "data_store_dynamic_i16" => Opcode::data_store_dynamic_i16,
             "data_store_dynamic_i8" => Opcode::data_store_dynamic_i8,
             "data_store_dynamic_f64" => Opcode::data_store_dynamic_f64,
             "data_store_dynamic_f32" => Opcode::data_store_dynamic_f32,
-            //
-            "memory_allocate" => Opcode::memory_allocate,
-            "memory_resize" => Opcode::memory_resize,
-            "memory_free" => Opcode::memory_free,
-            /*
-            "memory_fill" => Opcode::memory_fill,
-            "memory_copy" => Opcode::memory_copy,
-            */
-            //
-            "truncate_i64_to_i32" => Opcode::truncate_i64_to_i32,
-            "extend_i32_s_to_i64" => Opcode::extend_i32_s_to_i64,
-            "extend_i32_u_to_i64" => Opcode::extend_i32_u_to_i64,
-            "demote_f64_to_f32" => Opcode::demote_f64_to_f32,
-            "promote_f32_to_f64" => Opcode::promote_f32_to_f64,
-            //
-            "convert_f32_to_i32_s" => Opcode::convert_f32_to_i32_s,
-            "convert_f32_to_i32_u" => Opcode::convert_f32_to_i32_u,
-            "convert_f64_to_i32_s" => Opcode::convert_f64_to_i32_s,
-            "convert_f64_to_i32_u" => Opcode::convert_f64_to_i32_u,
-            "convert_f32_to_i64_s" => Opcode::convert_f32_to_i64_s,
-            "convert_f32_to_i64_u" => Opcode::convert_f32_to_i64_u,
-            "convert_f64_to_i64_s" => Opcode::convert_f64_to_i64_s,
-            "convert_f64_to_i64_u" => Opcode::convert_f64_to_i64_u,
-            //
-            "convert_i32_s_to_f32" => Opcode::convert_i32_s_to_f32,
-            "convert_i32_u_to_f32" => Opcode::convert_i32_u_to_f32,
-            "convert_i64_s_to_f32" => Opcode::convert_i64_s_to_f32,
-            "convert_i64_u_to_f32" => Opcode::convert_i64_u_to_f32,
-            "convert_i32_s_to_f64" => Opcode::convert_i32_s_to_f64,
-            "convert_i32_u_to_f64" => Opcode::convert_i32_u_to_f64,
-            "convert_i64_s_to_f64" => Opcode::convert_i64_s_to_f64,
-            "convert_i64_u_to_f64" => Opcode::convert_i64_u_to_f64,
-            //
-            "eqz_i32" => Opcode::eqz_i32,
-            "nez_i32" => Opcode::nez_i32,
-            "eq_i32" => Opcode::eq_i32,
-            "ne_i32" => Opcode::ne_i32,
-            "lt_i32_s" => Opcode::lt_i32_s,
-            "lt_i32_u" => Opcode::lt_i32_u,
-            "gt_i32_s" => Opcode::gt_i32_s,
-            "gt_i32_u" => Opcode::gt_i32_u,
-            "le_i32_s" => Opcode::le_i32_s,
-            "le_i32_u" => Opcode::le_i32_u,
-            "ge_i32_s" => Opcode::ge_i32_s,
-            "ge_i32_u" => Opcode::ge_i32_u,
-            //
-            "eqz_i64" => Opcode::eqz_i64,
-            "nez_i64" => Opcode::nez_i64,
-            "eq_i64" => Opcode::eq_i64,
-            "ne_i64" => Opcode::ne_i64,
-            "lt_i64_s" => Opcode::lt_i64_s,
-            "lt_i64_u" => Opcode::lt_i64_u,
-            "gt_i64_s" => Opcode::gt_i64_s,
-            "gt_i64_u" => Opcode::gt_i64_u,
-            "le_i64_s" => Opcode::le_i64_s,
-            "le_i64_u" => Opcode::le_i64_u,
-            "ge_i64_s" => Opcode::ge_i64_s,
-            "ge_i64_u" => Opcode::ge_i64_u,
-            //
-            "eq_f32" => Opcode::eq_f32,
-            "ne_f32" => Opcode::ne_f32,
-            "lt_f32" => Opcode::lt_f32,
-            "gt_f32" => Opcode::gt_f32,
-            "le_f32" => Opcode::le_f32,
-            "ge_f32" => Opcode::ge_f32,
-            //
-            "eq_f64" => Opcode::eq_f64,
-            "ne_f64" => Opcode::ne_f64,
-            "lt_f64" => Opcode::lt_f64,
-            "gt_f64" => Opcode::gt_f64,
-            "le_f64" => Opcode::le_f64,
-            "ge_f64" => Opcode::ge_f64,
-            //
+            // Category: Arithmetic
             "add_i32" => Opcode::add_i32,
             "sub_i32" => Opcode::sub_i32,
             "add_imm_i32" => Opcode::add_imm_i32,
@@ -2385,7 +2282,6 @@ impl Opcode {
             "div_i32_u" => Opcode::div_i32_u,
             "rem_i32_s" => Opcode::rem_i32_s,
             "rem_i32_u" => Opcode::rem_i32_u,
-            //
             "add_i64" => Opcode::add_i64,
             "sub_i64" => Opcode::sub_i64,
             "add_imm_i64" => Opcode::add_imm_i64,
@@ -2395,22 +2291,19 @@ impl Opcode {
             "div_i64_u" => Opcode::div_i64_u,
             "rem_i64_s" => Opcode::rem_i64_s,
             "rem_i64_u" => Opcode::rem_i64_u,
-            //
             "add_f32" => Opcode::add_f32,
             "sub_f32" => Opcode::sub_f32,
             "mul_f32" => Opcode::mul_f32,
             "div_f32" => Opcode::div_f32,
-            //
             "add_f64" => Opcode::add_f64,
             "sub_f64" => Opcode::sub_f64,
             "mul_f64" => Opcode::mul_f64,
             "div_f64" => Opcode::div_f64,
-            //
+            // Category: Bitwise
             "and" => Opcode::and,
             "or" => Opcode::or,
             "xor" => Opcode::xor,
             "not" => Opcode::not,
-            //
             "count_leading_zeros_i32" => Opcode::count_leading_zeros_i32,
             "count_leading_ones_i32" => Opcode::count_leading_ones_i32,
             "count_trailing_zeros_i32" => Opcode::count_trailing_zeros_i32,
@@ -2429,12 +2322,11 @@ impl Opcode {
             "shift_right_i64_u" => Opcode::shift_right_i64_u,
             "rotate_left_i64" => Opcode::rotate_left_i64,
             "rotate_right_i64" => Opcode::rotate_right_i64,
-            //
+            // Category: Math
             "abs_i32" => Opcode::abs_i32,
             "neg_i32" => Opcode::neg_i32,
             "abs_i64" => Opcode::abs_i64,
             "neg_i64" => Opcode::neg_i64,
-            //
             "abs_f32" => Opcode::abs_f32,
             "neg_f32" => Opcode::neg_f32,
             "copysign_f32" => Opcode::copysign_f32,
@@ -2461,7 +2353,6 @@ impl Opcode {
             "atan_f32" => Opcode::atan_f32,
             "pow_f32" => Opcode::pow_f32,
             "log_f32" => Opcode::log_f32,
-            //
             "abs_f64" => Opcode::abs_f64,
             "neg_f64" => Opcode::neg_f64,
             "copysign_f64" => Opcode::copysign_f64,
@@ -2488,7 +2379,66 @@ impl Opcode {
             "atan_f64" => Opcode::atan_f64,
             "pow_f64" => Opcode::pow_f64,
             "log_f64" => Opcode::log_f64,
-            //
+            // Category: Conversion
+            "truncate_i64_to_i32" => Opcode::truncate_i64_to_i32,
+            "extend_i32_s_to_i64" => Opcode::extend_i32_s_to_i64,
+            "extend_i32_u_to_i64" => Opcode::extend_i32_u_to_i64,
+            "demote_f64_to_f32" => Opcode::demote_f64_to_f32,
+            "promote_f32_to_f64" => Opcode::promote_f32_to_f64,
+            "convert_f32_to_i32_s" => Opcode::convert_f32_to_i32_s,
+            "convert_f32_to_i32_u" => Opcode::convert_f32_to_i32_u,
+            "convert_f64_to_i32_s" => Opcode::convert_f64_to_i32_s,
+            "convert_f64_to_i32_u" => Opcode::convert_f64_to_i32_u,
+            "convert_f32_to_i64_s" => Opcode::convert_f32_to_i64_s,
+            "convert_f32_to_i64_u" => Opcode::convert_f32_to_i64_u,
+            "convert_f64_to_i64_s" => Opcode::convert_f64_to_i64_s,
+            "convert_f64_to_i64_u" => Opcode::convert_f64_to_i64_u,
+            "convert_i32_s_to_f32" => Opcode::convert_i32_s_to_f32,
+            "convert_i32_u_to_f32" => Opcode::convert_i32_u_to_f32,
+            "convert_i64_s_to_f32" => Opcode::convert_i64_s_to_f32,
+            "convert_i64_u_to_f32" => Opcode::convert_i64_u_to_f32,
+            "convert_i32_s_to_f64" => Opcode::convert_i32_s_to_f64,
+            "convert_i32_u_to_f64" => Opcode::convert_i32_u_to_f64,
+            "convert_i64_s_to_f64" => Opcode::convert_i64_s_to_f64,
+            "convert_i64_u_to_f64" => Opcode::convert_i64_u_to_f64,
+            // Category: Comparison
+            "eqz_i32" => Opcode::eqz_i32,
+            "nez_i32" => Opcode::nez_i32,
+            "eq_i32" => Opcode::eq_i32,
+            "ne_i32" => Opcode::ne_i32,
+            "lt_i32_s" => Opcode::lt_i32_s,
+            "lt_i32_u" => Opcode::lt_i32_u,
+            "gt_i32_s" => Opcode::gt_i32_s,
+            "gt_i32_u" => Opcode::gt_i32_u,
+            "le_i32_s" => Opcode::le_i32_s,
+            "le_i32_u" => Opcode::le_i32_u,
+            "ge_i32_s" => Opcode::ge_i32_s,
+            "ge_i32_u" => Opcode::ge_i32_u,
+            "eqz_i64" => Opcode::eqz_i64,
+            "nez_i64" => Opcode::nez_i64,
+            "eq_i64" => Opcode::eq_i64,
+            "ne_i64" => Opcode::ne_i64,
+            "lt_i64_s" => Opcode::lt_i64_s,
+            "lt_i64_u" => Opcode::lt_i64_u,
+            "gt_i64_s" => Opcode::gt_i64_s,
+            "gt_i64_u" => Opcode::gt_i64_u,
+            "le_i64_s" => Opcode::le_i64_s,
+            "le_i64_u" => Opcode::le_i64_u,
+            "ge_i64_s" => Opcode::ge_i64_s,
+            "ge_i64_u" => Opcode::ge_i64_u,
+            "eq_f32" => Opcode::eq_f32,
+            "ne_f32" => Opcode::ne_f32,
+            "lt_f32" => Opcode::lt_f32,
+            "gt_f32" => Opcode::gt_f32,
+            "le_f32" => Opcode::le_f32,
+            "ge_f32" => Opcode::ge_f32,
+            "eq_f64" => Opcode::eq_f64,
+            "ne_f64" => Opcode::ne_f64,
+            "lt_f64" => Opcode::lt_f64,
+            "gt_f64" => Opcode::gt_f64,
+            "le_f64" => Opcode::le_f64,
+            "ge_f64" => Opcode::ge_f64,
+            // Category: Control flow
             "end" => Opcode::end,
             "block" => Opcode::block,
             "break" => Opcode::break_,
@@ -2496,28 +2446,27 @@ impl Opcode {
             "block_alt" => Opcode::block_alt,
             "break_alt" => Opcode::break_alt,
             "block_nez" => Opcode::block_nez,
-            //
             "call" => Opcode::call,
             "call_dynamic" => Opcode::call_dynamic,
             "envcall" => Opcode::envcall,
             "syscall" => Opcode::syscall,
             "extcall" => Opcode::extcall,
-            //
+            // Category: Memory
+            "memory_allocate" => Opcode::memory_allocate,
+            "memory_resize" => Opcode::memory_resize,
+            "memory_free" => Opcode::memory_free,
+            "memory_fill" => Opcode::memory_fill,
+            "memory_copy" => Opcode::memory_copy,
+            // Category: Machine
+            "terminate" => Opcode::terminate,
             "get_function" => Opcode::get_function,
             "get_data" => Opcode::get_data,
-            //
             "host_addr_function" => Opcode::host_addr_function,
             "host_addr_local" => Opcode::host_addr_local,
             "host_addr_local_extend" => Opcode::host_addr_local_extend,
             "host_addr_data" => Opcode::host_addr_data,
             "host_addr_data_extend" => Opcode::host_addr_data_extend,
             "host_addr_data_dynamic" => Opcode::host_addr_data_dynamic,
-            //
-            /*
-            "host_copy_from_data" => Opcode::host_copy_from_data,
-            "host_copy_to_data" => Opcode::host_copy_to_data,
-            "host_external_memory_copy" => Opcode::host_external_memory_copy,
-            */
             //
             _ => panic!("Unknown instruction \"{}\".", name),
         }
