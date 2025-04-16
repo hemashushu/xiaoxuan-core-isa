@@ -156,10 +156,6 @@
 // - 64 bits:
 //   Instructions with 2 parameters, such as `data_load_i64`.
 //   16 bits opcode + 16 bits parameter 0 + 32 bits parameter 1 (aligned to 4 bytes)
-// DEPRECATED
-// // - 64 bits:
-// //   Instructions with 3 parameters, such as `local_load_i64`.
-// //   16 bits opcode + 16 bits parameter 1 + 16 bits parameter 2 + 16 bits parameter 3
 // - 96 bits:
 //   Instructions with 2 parameters, such as `block`.
 //   16 bits opcode + (16 bits padding) + 32 bits parameter 0 + 32 bits parameter 1 (aligned to 4 bytes)
@@ -332,28 +328,6 @@ pub enum Opcode {
     local_store_i8, // (param reversed_index:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
     local_store_f64, // (param reversed_index:i16 local_variable_index:i32) (operand value:f64) -> (remain_values)
     local_store_f32, // (param reversed_index:i16 local_variable_index:i32) (operand value:f32) -> (remain_values)
-
-    // DEPRECATED
-    // //     // Extended Load and Store Instructions
-    // //     // ------------------------------------
-    // //     // These instructions support extended offsets for loading and storing local variables.
-    // //     //
-    // //     local_load_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
-    // //     local_load_extend_i32_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
-    // //     local_load_extend_i32_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
-    // //     local_load_extend_i16_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
-    // //     local_load_extend_i16_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
-    // //     local_load_extend_i8_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
-    // //     local_load_extend_i8_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
-    // //     local_load_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f64
-    // //     local_load_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f32
-    // //
-    // //     local_store_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i64) -> (remain_values)
-    // //     local_store_extend_i32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    // //     local_store_extend_i16, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    // //     local_store_extend_i8, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    // //     local_store_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f64) -> (remain_values)
-    // //     local_store_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f32) -> (remain_values)
 
     // Category: Data
     // --------------
@@ -1949,22 +1923,6 @@ impl Opcode {
             Opcode::local_store_i8 => "local_store_i8",
             Opcode::local_store_f64 => "local_store_f64",
             Opcode::local_store_f32 => "local_store_f32",
-            // DEPRECATED
-            // // Opcode::local_load_extend_i64 => "local_load_extend_i64",
-            // // Opcode::local_load_extend_i32_s => "local_load_extend_i32_s",
-            // // Opcode::local_load_extend_i32_u => "local_load_extend_i32_u",
-            // // Opcode::local_load_extend_i16_s => "local_load_extend_i16_s",
-            // // Opcode::local_load_extend_i16_u => "local_load_extend_i16_u",
-            // // Opcode::local_load_extend_i8_s => "local_load_extend_i8_s",
-            // // Opcode::local_load_extend_i8_u => "local_load_extend_i8_u",
-            // // Opcode::local_load_extend_f64 => "local_load_extend_f64",
-            // // Opcode::local_load_extend_f32 => "local_load_extend_f32",
-            // // Opcode::local_store_extend_i64 => "local_store_extend_i64",
-            // // Opcode::local_store_extend_i32 => "local_store_extend_i32",
-            // // Opcode::local_store_extend_i16 => "local_store_extend_i16",
-            // // Opcode::local_store_extend_i8 => "local_store_extend_i8",
-            // // Opcode::local_store_extend_f64 => "local_store_extend_f64",
-            // // Opcode::local_store_extend_f32 => "local_store_extend_f32",
             // Category: Data
             Opcode::data_load_i64 => "data_load_i64",
             Opcode::data_load_i32_s => "data_load_i32_s",
@@ -2202,9 +2160,6 @@ impl Opcode {
             Opcode::get_data => "get_data",
             Opcode::host_addr_function => "host_addr_function",
             Opcode::host_addr_function_dynamic => "host_addr_function_dynamic",
-            // DEPRECATED
-            // // Opcode::host_addr_local => "host_addr_local",
-            // // Opcode::host_addr_local_extend => "host_addr_local_extend",
             Opcode::host_addr_data => "host_addr_data",
             Opcode::host_addr_data_extend => "host_addr_data_extend",
             Opcode::host_addr_data_dynamic => "host_addr_data_dynamic",
@@ -2235,22 +2190,6 @@ impl Opcode {
             "local_store_i8" => Opcode::local_store_i8,
             "local_store_f64" => Opcode::local_store_f64,
             "local_store_f32" => Opcode::local_store_f32,
-            // DEPRECATED
-            // // "local_load_extend_i64" => Opcode::local_load_extend_i64,
-            // // "local_load_extend_i32_s" => Opcode::local_load_extend_i32_s,
-            // // "local_load_extend_i32_u" => Opcode::local_load_extend_i32_u,
-            // // "local_load_extend_i16_s" => Opcode::local_load_extend_i16_s,
-            // // "local_load_extend_i16_u" => Opcode::local_load_extend_i16_u,
-            // // "local_load_extend_i8_s" => Opcode::local_load_extend_i8_s,
-            // // "local_load_extend_i8_u" => Opcode::local_load_extend_i8_u,
-            // // "local_load_extend_f64" => Opcode::local_load_extend_f64,
-            // // "local_load_extend_f32" => Opcode::local_load_extend_f32,
-            // // "local_store_extend_i64" => Opcode::local_store_extend_i64,
-            // // "local_store_extend_i32" => Opcode::local_store_extend_i32,
-            // // "local_store_extend_i16" => Opcode::local_store_extend_i16,
-            // // "local_store_extend_i8" => Opcode::local_store_extend_i8,
-            // // "local_store_extend_f64" => Opcode::local_store_extend_f64,
-            // // "local_store_extend_f32" => Opcode::local_store_extend_f32,
             // Category: Data
             "data_load_i64" => Opcode::data_load_i64,
             "data_load_i32_s" => Opcode::data_load_i32_s,
@@ -2488,9 +2427,6 @@ impl Opcode {
             "get_data" => Opcode::get_data,
             "host_addr_function" => Opcode::host_addr_function,
             "host_addr_function_dynamic" => Opcode::host_addr_function_dynamic,
-            // DEPRECATED
-            // // "host_addr_local" => Opcode::host_addr_local,
-            // // "host_addr_local_extend" => Opcode::host_addr_local_extend,
             "host_addr_data" => Opcode::host_addr_data,
             "host_addr_data_extend" => Opcode::host_addr_data_extend,
             "host_addr_data_dynamic" => Opcode::host_addr_data_dynamic,
