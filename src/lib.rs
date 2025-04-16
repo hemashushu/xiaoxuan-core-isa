@@ -187,12 +187,14 @@ pub const OPERAND_SIZE_IN_BYTES: usize = 8;
 
 /// The data type for:
 /// - Function parameters and results.
+/// - Local variables.
 /// - Instruction operands.
 ///
 /// Note: The `i32` here refers to a 32-bit integer, equivalent to `uint32_t` in C or `u32` in Rust.
-/// Do not confuse it with Rust's `i32`. The same applies to `i8`, `i16`, and `i64`.
+/// Do not confuse it with Rust's `i32` (signed 32-bit integer).
+/// The same applies to `i8`, `i16`, and `i64`.
 ///
-/// P.S. the function `std::mem::transmute` can be used for converting data type
+/// P.S. the Rust function `std::mem::transmute` can be used for converting data type
 /// between `enum` and `u8` date, e.g.
 ///
 /// ```rust
@@ -201,7 +203,7 @@ pub const OPERAND_SIZE_IN_BYTES: usize = 8;
 /// assert_eq!(a, 2);
 /// ```
 ///
-/// It can be also done through 'union', e.g.
+/// This convertion can be also done through 'union', e.g.
 ///
 /// ```rust
 /// use anc_isa::OperandDataType;
@@ -233,8 +235,8 @@ pub enum OperandDataType {
 }
 
 /// The data type for:
-/// - Local variables.
-/// - Data in the DATA sections and heap.
+/// - Data in the data sections (read-only, read-write, uninitialized).
+/// - Data of dynamically allocated memory (heap).
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MemoryDataType {

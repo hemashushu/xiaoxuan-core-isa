@@ -4,20 +4,21 @@
 // the Mozilla Public License version 2.0 and additional exceptions.
 // For more details, see the LICENSE, LICENSE.additional, and CONTRIBUTING files.
 
-// XiaoXuan Core VM Internal Data Types
-// ------------------------------------
+// XiaoXuan Core VM Data Types
+// ---------------------------
 //
-// The VM supports the following data types:
+// The XiaoXuan Core VM supports the following primitive data types:
 //
-// - i8
-// - i16
-// - i32
-// - i64
-// - f32
-// - f64
+// - i32: 32-bit integer
+// - i64: 64-bit integer
+// - f32: 32-bit floating-point number
+// - f64: 64-bit floating-point number
 //
-// However, only i64, f32, and f64 are native data types. The i8, i16, and i32 types
-// are sign-extended and stored as i64 internally.
+// These data types are used for arguments, return values, local variables, and instruction parameters.
+//
+// Inside the VM:
+// - i32 values are sign-extended to i64 when necessary.
+// - Instruction parameters may use smaller types like i8 or i16, but these are also sign-extended to i64.
 
 // Memory Representation of Data Types
 // -----------------------------------
@@ -155,9 +156,10 @@
 // - 64 bits:
 //   Instructions with 2 parameters, such as `data_load_i64`.
 //   16 bits opcode + 16 bits parameter 0 + 32 bits parameter 1 (aligned to 4 bytes)
-// - 64 bits:
-//   Instructions with 3 parameters, such as `local_load_i64`.
-//   16 bits opcode + 16 bits parameter 1 + 16 bits parameter 2 + 16 bits parameter 3
+// DEPRECATED
+// // - 64 bits:
+// //   Instructions with 3 parameters, such as `local_load_i64`.
+// //   16 bits opcode + 16 bits parameter 1 + 16 bits parameter 2 + 16 bits parameter 3
 // - 96 bits:
 //   Instructions with 2 parameters, such as `block`.
 //   16 bits opcode + (16 bits padding) + 32 bits parameter 0 + 32 bits parameter 1 (aligned to 4 bytes)
@@ -243,6 +245,18 @@ pub enum Opcode {
     // Category: Local Variables
     // --------------------------
 
+    // Local Variables Data Types
+    // --------------------------
+    // Local variables in the XiaoXuan Core VM only support the following primitive data types:
+    // - i32: 32-bit integer
+    // - i64: 64-bit integer
+    // - f32: 32-bit floating-point number
+    // - f64: 64-bit floating-point number
+    //
+    // Unlike some programming languages that support complex data types (e.g., structs, arrays),
+    // the XiaoXuan Core VM does not natively support such types for local variables.
+    // Instead, complex data structures can be represented using the "Data" object within the VM.
+
     // Loading Local Variables
     // -----------------------
     // Loads the specified local variable and pushes it onto the operand stack.
@@ -267,24 +281,24 @@ pub enum Opcode {
     // - In the default VM implementation, all local variables are 8-byte aligned. This is because local
     //   variables are allocated on the stack, which is also 8-byte aligned.
     //
-    local_load_i64 = 0x02_00, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i64
-    local_load_i32_s, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i32
-    local_load_i32_u, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i32
-    local_load_i16_s, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i16
-    local_load_i16_u, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i16
-    local_load_i8_s,  // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i8
-    local_load_i8_u,  // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> i8
+    local_load_i64 = 0x02_00, // (param reversed_index:i16 local_variable_index:i32) -> i64
+    local_load_i32_s,         // (param reversed_index:i16 local_variable_index:i32) -> i32
+    local_load_i32_u,         // (param reversed_index:i16 local_variable_index:i32) -> i32
+    local_load_i16_s,         // (param reversed_index:i16 local_variable_index:i32) -> i16
+    local_load_i16_u,         // (param reversed_index:i16 local_variable_index:i32) -> i16
+    local_load_i8_s,          // (param reversed_index:i16 local_variable_index:i32) -> i8
+    local_load_i8_u,          // (param reversed_index:i16 local_variable_index:i32) -> i8
 
     // Loads an f64 value with floating-point validity checks.
     //
-    // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> f64
+    // (param reversed_index:i16 local_variable_index:i32) -> f64
     local_load_f64,
 
     // Loads an f32 value with floating-point validity checks.
     //
     // Note: The high part of the f32 operand (on the stack) is undefined.
     //
-    // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> f32
+    // (param reversed_index:i16 local_variable_index:i32) -> f32
     local_load_f32,
 
     // Storing Local Variables
@@ -312,33 +326,34 @@ pub enum Opcode {
     // - If an instruction (e.g., `call`) returns multiple operands, use "xxx_store_xxx" instructions
     //   multiple times to store all return values if necessary.
     //
-    local_store_i64, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:i64) -> (remain_values)
-    local_store_i32, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:i32) -> (remain_values)
-    local_store_i16, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:i32) -> (remain_values)
-    local_store_i8, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:i32) -> (remain_values)
-    local_store_f64, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:f64) -> (remain_values)
-    local_store_f32, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) (operand value:f32) -> (remain_values)
+    local_store_i64, // (param reversed_index:i16 local_variable_index:i32) (operand value:i64) -> (remain_values)
+    local_store_i32, // (param reversed_index:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
+    local_store_i16, // (param reversed_index:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
+    local_store_i8, // (param reversed_index:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
+    local_store_f64, // (param reversed_index:i16 local_variable_index:i32) (operand value:f64) -> (remain_values)
+    local_store_f32, // (param reversed_index:i16 local_variable_index:i32) (operand value:f32) -> (remain_values)
 
-    // Extended Load and Store Instructions
-    // ------------------------------------
-    // These instructions support extended offsets for loading and storing local variables.
-    //
-    local_load_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
-    local_load_extend_i32_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
-    local_load_extend_i32_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
-    local_load_extend_i16_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
-    local_load_extend_i16_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
-    local_load_extend_i8_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
-    local_load_extend_i8_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
-    local_load_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f64
-    local_load_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f32
-
-    local_store_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i64) -> (remain_values)
-    local_store_extend_i32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    local_store_extend_i16, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    local_store_extend_i8, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    local_store_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f64) -> (remain_values)
-    local_store_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f32) -> (remain_values)
+    // DEPRECATED
+    // //     // Extended Load and Store Instructions
+    // //     // ------------------------------------
+    // //     // These instructions support extended offsets for loading and storing local variables.
+    // //     //
+    // //     local_load_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i64
+    // //     local_load_extend_i32_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
+    // //     local_load_extend_i32_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i32
+    // //     local_load_extend_i16_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
+    // //     local_load_extend_i16_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i16
+    // //     local_load_extend_i8_s, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
+    // //     local_load_extend_i8_u, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> i8
+    // //     local_load_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f64
+    // //     local_load_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> f32
+    // //
+    // //     local_store_extend_i64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i64) -> (remain_values)
+    // //     local_store_extend_i32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
+    // //     local_store_extend_i16, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
+    // //     local_store_extend_i8, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
+    // //     local_store_extend_f64, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f64) -> (remain_values)
+    // //     local_store_extend_f32, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64 value:f32) -> (remain_values)
 
     // Category: Data
     // --------------
@@ -1867,6 +1882,20 @@ pub enum Opcode {
     // (param data_public_index:i32) -> (data_module_index:i32 data_public_index:i32)
     get_data,
 
+    // Creates a native function that wraps a VM function, allowing the host side or
+    // external libraries to call the VM function.
+    //
+    // Notes:
+    // - A "bridge callback function" (a native function) is created when this instruction is executed.
+    // - The body of the "bridge callback function" is generated via JIT codegen.
+    // - The specified VM function is added to the "bridge callback function table" to prevent duplicate creation.
+    //
+    // (param function_public_index:i32) -> pointer
+    host_addr_function,
+
+    // () (operand function_module_index:i32 function_public_index:i32) -> pointer
+    host_addr_function_dynamic,
+
     // Retrieves the memory address of VM data.
     //
     // Accessing VM data using host-side memory addresses is unsafe, but these addresses
@@ -1886,21 +1915,13 @@ pub enum Opcode {
     // | dynamic alloc memory |          |                    |
     //
     //
-    host_addr_local, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> pointer
-    host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> pointer
-    host_addr_data,         // (param offset_bytes:i16 data_public_index:i32) -> pointer
-    host_addr_data_extend,  // (param data_public_index:i32) (operand offset_bytes:i64) -> pointer
-    host_addr_data_dynamic, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> pointer
 
-    // Creates a native function that wraps a VM function, allowing the host side to call the VM function.
-    //
-    // Notes:
-    // - A "bridge callback function" (a native function) is created when this instruction is executed.
-    // - The body of the "bridge callback function" is generated via JIT codegen.
-    // - The specified VM function is added to the "bridge callback function table" to prevent duplicate creation.
-    //
-    // (param function_public_index:i32) -> i64
-    host_addr_function,
+    // DPRECATED
+    // // host_addr_local, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> pointer
+    // // host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> pointer
+    host_addr_data,        // (param offset_bytes:i16 data_public_index:i32) -> pointer
+    host_addr_data_extend, // (param data_public_index:i32) (operand offset_bytes:i64) -> pointer
+    host_addr_data_dynamic, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> pointer
 }
 
 impl Opcode {
@@ -1928,21 +1949,22 @@ impl Opcode {
             Opcode::local_store_i8 => "local_store_i8",
             Opcode::local_store_f64 => "local_store_f64",
             Opcode::local_store_f32 => "local_store_f32",
-            Opcode::local_load_extend_i64 => "local_load_extend_i64",
-            Opcode::local_load_extend_i32_s => "local_load_extend_i32_s",
-            Opcode::local_load_extend_i32_u => "local_load_extend_i32_u",
-            Opcode::local_load_extend_i16_s => "local_load_extend_i16_s",
-            Opcode::local_load_extend_i16_u => "local_load_extend_i16_u",
-            Opcode::local_load_extend_i8_s => "local_load_extend_i8_s",
-            Opcode::local_load_extend_i8_u => "local_load_extend_i8_u",
-            Opcode::local_load_extend_f64 => "local_load_extend_f64",
-            Opcode::local_load_extend_f32 => "local_load_extend_f32",
-            Opcode::local_store_extend_i64 => "local_store_extend_i64",
-            Opcode::local_store_extend_i32 => "local_store_extend_i32",
-            Opcode::local_store_extend_i16 => "local_store_extend_i16",
-            Opcode::local_store_extend_i8 => "local_store_extend_i8",
-            Opcode::local_store_extend_f64 => "local_store_extend_f64",
-            Opcode::local_store_extend_f32 => "local_store_extend_f32",
+            // DEPRECATED
+            // // Opcode::local_load_extend_i64 => "local_load_extend_i64",
+            // // Opcode::local_load_extend_i32_s => "local_load_extend_i32_s",
+            // // Opcode::local_load_extend_i32_u => "local_load_extend_i32_u",
+            // // Opcode::local_load_extend_i16_s => "local_load_extend_i16_s",
+            // // Opcode::local_load_extend_i16_u => "local_load_extend_i16_u",
+            // // Opcode::local_load_extend_i8_s => "local_load_extend_i8_s",
+            // // Opcode::local_load_extend_i8_u => "local_load_extend_i8_u",
+            // // Opcode::local_load_extend_f64 => "local_load_extend_f64",
+            // // Opcode::local_load_extend_f32 => "local_load_extend_f32",
+            // // Opcode::local_store_extend_i64 => "local_store_extend_i64",
+            // // Opcode::local_store_extend_i32 => "local_store_extend_i32",
+            // // Opcode::local_store_extend_i16 => "local_store_extend_i16",
+            // // Opcode::local_store_extend_i8 => "local_store_extend_i8",
+            // // Opcode::local_store_extend_f64 => "local_store_extend_f64",
+            // // Opcode::local_store_extend_f32 => "local_store_extend_f32",
             // Category: Data
             Opcode::data_load_i64 => "data_load_i64",
             Opcode::data_load_i32_s => "data_load_i32_s",
@@ -2179,8 +2201,10 @@ impl Opcode {
             Opcode::get_function => "get_function",
             Opcode::get_data => "get_data",
             Opcode::host_addr_function => "host_addr_function",
-            Opcode::host_addr_local => "host_addr_local",
-            Opcode::host_addr_local_extend => "host_addr_local_extend",
+            Opcode::host_addr_function_dynamic => "host_addr_function_dynamic",
+            // DEPRECATED
+            // // Opcode::host_addr_local => "host_addr_local",
+            // // Opcode::host_addr_local_extend => "host_addr_local_extend",
             Opcode::host_addr_data => "host_addr_data",
             Opcode::host_addr_data_extend => "host_addr_data_extend",
             Opcode::host_addr_data_dynamic => "host_addr_data_dynamic",
@@ -2211,21 +2235,22 @@ impl Opcode {
             "local_store_i8" => Opcode::local_store_i8,
             "local_store_f64" => Opcode::local_store_f64,
             "local_store_f32" => Opcode::local_store_f32,
-            "local_load_extend_i64" => Opcode::local_load_extend_i64,
-            "local_load_extend_i32_s" => Opcode::local_load_extend_i32_s,
-            "local_load_extend_i32_u" => Opcode::local_load_extend_i32_u,
-            "local_load_extend_i16_s" => Opcode::local_load_extend_i16_s,
-            "local_load_extend_i16_u" => Opcode::local_load_extend_i16_u,
-            "local_load_extend_i8_s" => Opcode::local_load_extend_i8_s,
-            "local_load_extend_i8_u" => Opcode::local_load_extend_i8_u,
-            "local_load_extend_f64" => Opcode::local_load_extend_f64,
-            "local_load_extend_f32" => Opcode::local_load_extend_f32,
-            "local_store_extend_i64" => Opcode::local_store_extend_i64,
-            "local_store_extend_i32" => Opcode::local_store_extend_i32,
-            "local_store_extend_i16" => Opcode::local_store_extend_i16,
-            "local_store_extend_i8" => Opcode::local_store_extend_i8,
-            "local_store_extend_f64" => Opcode::local_store_extend_f64,
-            "local_store_extend_f32" => Opcode::local_store_extend_f32,
+            // DEPRECATED
+            // // "local_load_extend_i64" => Opcode::local_load_extend_i64,
+            // // "local_load_extend_i32_s" => Opcode::local_load_extend_i32_s,
+            // // "local_load_extend_i32_u" => Opcode::local_load_extend_i32_u,
+            // // "local_load_extend_i16_s" => Opcode::local_load_extend_i16_s,
+            // // "local_load_extend_i16_u" => Opcode::local_load_extend_i16_u,
+            // // "local_load_extend_i8_s" => Opcode::local_load_extend_i8_s,
+            // // "local_load_extend_i8_u" => Opcode::local_load_extend_i8_u,
+            // // "local_load_extend_f64" => Opcode::local_load_extend_f64,
+            // // "local_load_extend_f32" => Opcode::local_load_extend_f32,
+            // // "local_store_extend_i64" => Opcode::local_store_extend_i64,
+            // // "local_store_extend_i32" => Opcode::local_store_extend_i32,
+            // // "local_store_extend_i16" => Opcode::local_store_extend_i16,
+            // // "local_store_extend_i8" => Opcode::local_store_extend_i8,
+            // // "local_store_extend_f64" => Opcode::local_store_extend_f64,
+            // // "local_store_extend_f32" => Opcode::local_store_extend_f32,
             // Category: Data
             "data_load_i64" => Opcode::data_load_i64,
             "data_load_i32_s" => Opcode::data_load_i32_s,
@@ -2462,8 +2487,10 @@ impl Opcode {
             "get_function" => Opcode::get_function,
             "get_data" => Opcode::get_data,
             "host_addr_function" => Opcode::host_addr_function,
-            "host_addr_local" => Opcode::host_addr_local,
-            "host_addr_local_extend" => Opcode::host_addr_local_extend,
+            "host_addr_function_dynamic" => Opcode::host_addr_function_dynamic,
+            // DEPRECATED
+            // // "host_addr_local" => Opcode::host_addr_local,
+            // // "host_addr_local_extend" => Opcode::host_addr_local_extend,
             "host_addr_data" => Opcode::host_addr_data,
             "host_addr_data_extend" => Opcode::host_addr_data_extend,
             "host_addr_data_dynamic" => Opcode::host_addr_data_dynamic,
