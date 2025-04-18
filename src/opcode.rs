@@ -276,25 +276,53 @@ pub enum Opcode {
     // Alignment:
     // - In the default VM implementation, all local variables are 8-byte aligned. This is because local
     //   variables are allocated on the stack, which is also 8-byte aligned.
+
+    // Layers
+    // ------
+    // The parameter `layers` specifies the depth of the frame relative to the current block frame.
     //
-    local_load_i64 = 0x02_00, // (param reversed_index:i16 local_variable_index:i32) -> i64
-    local_load_i32_s,         // (param reversed_index:i16 local_variable_index:i32) -> i32
-    local_load_i32_u,         // (param reversed_index:i16 local_variable_index:i32) -> i32
-    local_load_i16_s,         // (param reversed_index:i16 local_variable_index:i32) -> i16
-    local_load_i16_u,         // (param reversed_index:i16 local_variable_index:i32) -> i16
-    local_load_i8_s,          // (param reversed_index:i16 local_variable_index:i32) -> i8
-    local_load_i8_u,          // (param reversed_index:i16 local_variable_index:i32) -> i8
+    // For example:
+    // - `0` for the current frame.
+    // - `1` for the parent frame.
+    // - `n` for the nth parent frame.
+    //
+    // ```diagram
+    // fn {
+    //   ;; frame 0 (function frame)
+    //   block
+    //     ;; frame 1 (block frame)
+    //     block
+    //       ;; frame 2 (block frame)
+    //       block
+    //         ;; frame 3 (block frame)
+    //         ;;
+    //         ;; Assuming this is the current stack frame, then:
+    //         ;; - to get local variables of frame 3 (the current frame): layers = 0
+    //         ;; - to get local variables of frame 2: layers = 1
+    //         ;; - to get local variables of frame 0 (the function frame): layers = 3
+    //       end
+    //     end
+    //   end
+    // }
+    // ```
+    local_load_i64 = 0x02_00, // (param layers:i16 local_variable_index:i32) -> i64
+    local_load_i32_s,         // (param layers:i16 local_variable_index:i32) -> i32
+    local_load_i32_u,         // (param layers:i16 local_variable_index:i32) -> i32
+    local_load_i16_s,         // (param layers:i16 local_variable_index:i32) -> i16
+    local_load_i16_u,         // (param layers:i16 local_variable_index:i32) -> i16
+    local_load_i8_s,          // (param layers:i16 local_variable_index:i32) -> i8
+    local_load_i8_u,          // (param layers:i16 local_variable_index:i32) -> i8
 
     // Loads an f64 value with floating-point validity checks.
     //
-    // (param reversed_index:i16 local_variable_index:i32) -> f64
+    // (param layers:i16 local_variable_index:i32) -> f64
     local_load_f64,
 
     // Loads an f32 value with floating-point validity checks.
     //
     // Note: The high part of the f32 operand (on the stack) is undefined.
     //
-    // (param reversed_index:i16 local_variable_index:i32) -> f32
+    // (param layers:i16 local_variable_index:i32) -> f32
     local_load_f32,
 
     // Storing Local Variables
@@ -322,12 +350,12 @@ pub enum Opcode {
     // - If an instruction (e.g., `call`) returns multiple operands, use "xxx_store_xxx" instructions
     //   multiple times to store all return values if necessary.
     //
-    local_store_i64, // (param reversed_index:i16 local_variable_index:i32) (operand value:i64) -> (remain_values)
-    local_store_i32, // (param reversed_index:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
-    local_store_i16, // (param reversed_index:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
-    local_store_i8, // (param reversed_index:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
-    local_store_f64, // (param reversed_index:i16 local_variable_index:i32) (operand value:f64) -> (remain_values)
-    local_store_f32, // (param reversed_index:i16 local_variable_index:i32) (operand value:f32) -> (remain_values)
+    local_store_i64, // (param layers:i16 local_variable_index:i32) (operand value:i64) -> (remain_values)
+    local_store_i32, // (param layers:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
+    local_store_i16, // (param layers:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
+    local_store_i8, // (param layers:i16 local_variable_index:i32) (operand value:i32) -> (remain_values)
+    local_store_f64, // (param layers:i16 local_variable_index:i32) (operand value:f64) -> (remain_values)
+    local_store_f32, // (param layers:i16 local_variable_index:i32) (operand value:f32) -> (remain_values)
 
     // Category: Data
     // --------------
@@ -412,12 +440,12 @@ pub enum Opcode {
     data_load_extend_f32, // (param data_public_index:i32) (operand offset_bytes:i64) -> f32
 
     // Extended store instructions for various data types with a 64-bit offset.
-    data_store_extend_i64, // (param data_public_index:i32) (operand offset_bytes:i64 value:i64) -> (remain_values)
-    data_store_extend_i32, // (param data_public_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    data_store_extend_i16, // (param data_public_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    data_store_extend_i8, // (param data_public_index:i32) (operand offset_bytes:i64 value:i32) -> (remain_values)
-    data_store_extend_f64, // (param data_public_index:i32) (operand offset_bytes:i64 value:f64) -> (remain_values)
-    data_store_extend_f32, // (param data_public_index:i32) (operand offset_bytes:i64 value:f32) -> (remain_values)
+    data_store_extend_i64, // (param data_public_index:i32) (operand value:i64 offset_bytes:i64) -> (remain_values)
+    data_store_extend_i32, // (param data_public_index:i32) (operand value:i32 offset_bytes:i64) -> (remain_values)
+    data_store_extend_i16, // (param data_public_index:i32) (operand value:i32 offset_bytes:i64) -> (remain_values)
+    data_store_extend_i8, // (param data_public_index:i32) (operand value:i32 offset_bytes:i64) -> (remain_values)
+    data_store_extend_f64, // (param data_public_index:i32) (operand value:f64 offset_bytes:i64) -> (remain_values)
+    data_store_extend_f32, // (param data_public_index:i32) (operand value:f32 offset_bytes:i64) -> (remain_values)
 
     // Dynamic data load instructions which support dynamic module index, data public index and 64-bit offset.
     data_load_dynamic_i64, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> i64
@@ -431,12 +459,12 @@ pub enum Opcode {
     data_load_dynamic_f32, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> f32
 
     // Dynamic data store instructions which support dynamic module index, data public index and 64-bit offset.
-    data_store_dynamic_i64, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:i64) -> (remain_values)
-    data_store_dynamic_i32, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:i32) -> (remain_values)
-    data_store_dynamic_i16, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:i32) -> (remain_values)
-    data_store_dynamic_i8, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:i32) -> (remain_values)
-    data_store_dynamic_f64, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:f64) -> (remain_values)
-    data_store_dynamic_f32, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64 value:f32) -> (remain_values)
+    data_store_dynamic_i64, // () (operand value:i64 module_index:i32 data_public_index:i32 offset_bytes:i64) -> (remain_values)
+    data_store_dynamic_i32, // () (operand value:i32 module_index:i32 data_public_index:i32 offset_bytes:i64) -> (remain_values)
+    data_store_dynamic_i16, // () (operand value:i32 module_index:i32 data_public_index:i32 offset_bytes:i64) -> (remain_values)
+    data_store_dynamic_i8, // () (operand value:i32 module_index:i32 data_public_index:i32 offset_bytes:i64) -> (remain_values)
+    data_store_dynamic_f64, // () (operand value:f64 module_index:i32 data_public_index:i32 offset_bytes:i64) -> (remain_values)
+    data_store_dynamic_f32, // () (operand value:f32 module_index:i32 data_public_index:i32 offset_bytes:i64) -> (remain_values)
 
     // Category: Arithmetic
     // --------------------
@@ -1253,8 +1281,8 @@ pub enum Opcode {
     // - The `next_inst_offset` parameter simplifies instruction execution. In some VMs, similar parameters
     //   are calculated at runtime or during the loading stage.
     // - The "end" and "break" instructions are almost identical, except that "break" allows specifying
-    //   the `reversed_index` and `next_inst_offset` parameters. In essence, "end" is equivalent to
-    //   "break" with `reversed_index=0` and `next_inst_offset=8`.
+    //   the `layers` and `next_inst_offset` parameters. In essence, "end" is equivalent to
+    //   "break" with `layers=0` and `next_inst_offset=8`.
     //
     // Example:
     //
@@ -1290,7 +1318,7 @@ pub enum Opcode {
     // ```
     //
     // Additionally, the "break" instruction can cross multiple block layers.
-    // When `reversed_index` is 0, it exits the current block. If `reversed_index` is greater than 0,
+    // When `layers` is 0, it exits the current block. If `layers` is greater than 0,
     // it removes multiple block stack frames and transfers the corresponding operands out of the blocks.
     // The number of operands is determined by the target block's type.
     //
@@ -1315,7 +1343,7 @@ pub enum Opcode {
     // The XiaoXuan Core "break" instruction balances performance and elegance by implying "end"
     // and directly jumping to the instruction after "end."
     //
-    // (param reversed_index:i16 next_inst_offset:i32) NO_RETURN
+    // (param layers:i16 next_inst_offset:i32) NO_RETURN
     break_,
 
     // The "recur" instruction allows the VM to jump to the instruction immediately following
@@ -1369,7 +1397,7 @@ pub enum Opcode {
     // Parameter `start_inst_offset` is the address offset to the next instruction after "block". It is calculated as:
     // (address of "recur" - address of "block" + length of the "block" instruction).
     //
-    // (param reversed_index:i16 start_inst_offset:i32) -> NO_RETURN
+    // (param layers:i16 start_inst_offset:i32) -> NO_RETURN
     recur,
 
     // The "block_alt" instruction is similar to the "block" instruction. It creates a new block scope
@@ -1748,7 +1776,7 @@ pub enum Opcode {
     // let a = filter(list, predicate)
     // ```
     //
-    // () (operand function_module_index:i32 function_public_index:i32 args...) -> (values)
+    // () (operand args... function_module_index:i32 function_public_index:i32) -> (values)
     call_dynamic,
 
     // Environment Function Call
@@ -1783,7 +1811,7 @@ pub enum Opcode {
     //
     // Note: Unlike the C standard library, there is no "errno" when calling syscalls directly from assembly.
     //
-    // () (operand args... syscall_num:i32 params_count: i32) -> (return_value:i64 error_number:i32)
+    // () (operand args... params_count:i32 syscall_num:i32) -> (return_value:i64 error_number:i32)
     syscall,
 
     // External Function Call
@@ -1889,10 +1917,6 @@ pub enum Opcode {
     // | dynamic alloc memory |          |                    |
     //
     //
-
-    // DPRECATED
-    // // host_addr_local, // (param reversed_index:i16 offset_bytes:i16 local_variable_index:i16) -> pointer
-    // // host_addr_local_extend, // (param reversed_index:i16 local_variable_index:i32) (operand offset_bytes:i64) -> pointer
     host_addr_data,        // (param offset_bytes:i16 data_public_index:i32) -> pointer
     host_addr_data_extend, // (param data_public_index:i32) (operand offset_bytes:i64) -> pointer
     host_addr_data_dynamic, // () (operand module_index:i32 data_public_index:i32 offset_bytes:i64) -> pointer

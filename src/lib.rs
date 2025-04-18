@@ -13,11 +13,11 @@ use serde::{Deserialize, Serialize};
 // About Runtime Edition
 // ---------------------
 //
-// Runtime editions represent mutually incompatible generations of the runtime.
-// Different editions may introduce new syntax and features.
+// Runtime editions represent distinct, incompatible generations of the runtime.
+// Each edition may introduce new syntax and features.
 //
 // Applications and modules must specify a runtime edition. The application and
-// unit tests can only run if the specified edition matches the runtime edition exactly.
+// its unit tests can only run if the specified edition matches the runtime edition exactly.
 //
 // Note: An edition is not the same as a version number. Editions cannot be compared
 // or assumed to have backward compatibility. For example, a runtime with edition "2028"
@@ -25,12 +25,13 @@ use serde::{Deserialize, Serialize};
 //
 // If a module's edition differs from the application's edition, the compiler will
 // attempt to compile it using the application's edition. However, this does not
-// guarantee successful compilation. Developers should ensure that module editions
+// guarantee successful compilation. Developers should ensure module editions
 // are consistent with the application's edition.
 pub const RUNTIME_EDITION: &[u8; 8] = b"2025\0\0\0\0";
 pub const RUNTIME_EDITION_STRING: &str = "2025";
 
 // Semantic Versioning
+// -------------------
 // - https://semver.org/
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct EffectiveVersion {
@@ -71,9 +72,7 @@ impl EffectiveVersion {
     pub fn from_version_string(version: &str) -> Self {
         let nums = version
             .split('.')
-            .map(
-                |item| item.parse::<u16>().unwrap(), // or `u16::from_str_radix(item, 10).unwrap()`
-            )
+            .map(|item| item.parse::<u16>().unwrap()) // Parses each component as a u16.
             .collect::<Vec<_>>();
         assert!(nums.len() == 3);
 
@@ -144,7 +143,7 @@ pub const IMAGE_FORMAT_MINOR_VERSION: u16 = 0;
 // -----------------------------------
 //
 // Applications or shared modules may depend on one or more other shared modules.
-// When referencing a shared module, it is necessary to declare its major and minor version.
+// When referencing a shared module, its major and minor version must be declared.
 //
 // Version Conflicts
 // -----------------
@@ -154,9 +153,9 @@ pub const IMAGE_FORMAT_MINOR_VERSION: u16 = 0;
 // If the major version numbers are the same, the highest minor version
 // will be selected.
 //
-// This means that at runtime, the minor version of a module may be higher
-// than what the application explicitly declares. This is acceptable because
-// minor version updates are expected to maintain backward compatibility.
+// At runtime, the minor version of a module may be higher than what the
+// application explicitly declares. This is acceptable because minor version
+// updates are expected to maintain backward compatibility.
 //
 // For example, if an application depends on a module with version 1.4.0,
 // the actual runtime version could range from 1.4.0 to 1.99.99.
@@ -411,10 +410,10 @@ pub enum ModuleDependencyType {
     // It cannot be configured by users.
     //
     // Note:
-    // When objects files are linked, all internal references of functions and data
+    // When object files are linked, all internal references of functions and data
     // should be resolved, and this virtual module item in the "import module section"
     // would be removed. Therefore, this type would not be present in the shared module and
-    // applicaton module image files.
+    // application module image files.
     Current,
 }
 
@@ -537,7 +536,7 @@ pub struct DependencyLocal {
     /// Optional.
     /// The default value is [].
     #[serde(default)]
-    pub parameters: HashMap<String, ParameterValue>,
+    pub parameters: HashMap<String, DependencyParameterValue>,
 
     /// Optional.
     /// The default value is DependencyCondition::True.
@@ -557,7 +556,7 @@ pub struct DependencyRemote {
     /// Optional.
     /// The default value is [].
     #[serde(default)]
-    pub parameters: HashMap<String, ParameterValue>,
+    pub parameters: HashMap<String, DependencyParameterValue>,
 
     /// Optional.
     /// The default value is DependencyCondition::True.
@@ -574,7 +573,7 @@ pub struct DependencyShare {
     /// Optional.
     /// The default value is [].
     #[serde(default)]
-    pub parameters: HashMap<String, ParameterValue>,
+    pub parameters: HashMap<String, DependencyParameterValue>,
 
     /// Optional.
     /// The default value is DependencyCondition::True.
@@ -582,48 +581,75 @@ pub struct DependencyShare {
     pub condition: DependencyCondition,
 }
 
+/// Properties for the module.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(rename = "param")]
-pub enum ParameterValue {
+#[serde(rename = "prop")]
+pub enum PropertyValue {
     #[serde(rename = "string")]
     String(String),
 
     #[serde(rename = "number")]
-    Number(i64),
+    Number(i32),
 
-    #[serde(rename = "bool")]
-    Bool(bool),
+    #[serde(rename = "flag")]
+    Flag(bool),
+}
 
-    #[serde(rename = "prop")]
-    Prop(/* property name */ String),
+/// Dependency parameter value.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(rename = "param")]
+pub enum DependencyParameterValue {
+    #[serde(rename = "string")]
+    String(String),
 
-    #[serde(rename = "eval")]
-    Eval(String),
+    #[serde(rename = "number")]
+    Number(i32),
+
+    #[serde(rename = "flag")]
+    Flag(bool),
+
+    /// Inherite value from the specified property.
+    #[serde(rename = "from")]
+    From(String),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "cond")]
 pub enum DependencyCondition {
+    // Always True, used for default settings.
     #[serde(rename = "true")]
     True,
 
+    // Always False, used for disable temporary.
     #[serde(rename = "false")]
     False,
 
-    #[serde(rename = "is_true")]
-    IsTrue(/* property or constant name */ String),
+    // Equals to true if one of flags is true.
+    #[serde(rename = "any")]
+    Any(Vec<String>),
 
-    #[serde(rename = "is_false")]
-    IsFalse(/* property or constant name */ String),
-
-    #[serde(rename = "eval")]
-    Eval(/* expression */ String),
+    // Equals to true if one of properties is match.
+    #[serde(rename = "check")]
+    Check(Vec<DependencyConditionCheck>),
 }
 
 impl Default for DependencyCondition {
     fn default() -> Self {
         Self::True
     }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(rename = "check")]
+pub enum DependencyConditionCheck {
+    #[serde(rename = "string")]
+    String(/* name */ String, /* value */ String),
+
+    #[serde(rename = "number")]
+    Number(/* name */ String, /* value */ i32),
+
+    #[serde(rename = "flag")]
+    Flag(String),
 }
 
 impl Display for ExternalLibraryDependencyType {
@@ -640,10 +666,10 @@ impl Display for ExternalLibraryDependencyType {
 // The error in Rust
 // -----------------
 //
-// Sometimes you may want to get a specified type from 'dyn RuntimeError'.
-// You can downcast the 'dyn RuntimeError' object to a specified type, e.g.:
+// Sometimes you may want to get a specific type from 'dyn RuntimeError'.
+// You can downcast the 'dyn RuntimeError' object to a specific type, e.g.:
 //
-// let some_error:T = unsafe {
+// let some_error: T = unsafe {
 //     &*(runtime_error as *const dyn RuntimeError as *const T)
 // };
 //
@@ -652,15 +678,15 @@ impl Display for ExternalLibraryDependencyType {
 //
 // P.S., the slice object is also a 'fat' pointer, e.g.
 //
-// let v:Vec<u8> = vec![1,2,3];
+// let v: Vec<u8> = vec![1, 2, 3];
 // let p_fat = &v[..] as *const _;     // this is a fat pointer
-// let p_thin = p_fat as *const ();    // obtains the first pointer and discard the second pointer
+// let p_thin = p_fat as *const ();    // obtains the first pointer and discards the second pointer
 // let addr = p_thin as usize;         // check the address in memory
 //
-// for simplicity, 'RuntimeError' may provides function 'as_any' for downcasing, e.g.
+// For simplicity, 'RuntimeError' may provide a function 'as_any' for downcasting, e.g.
 //
 // let some_error = runtime_error
-//     .as_any
+//     .as_any()
 //     .downcast_ref::<T>()
 //     .expect("...");
 //
@@ -669,12 +695,6 @@ impl Display for ExternalLibraryDependencyType {
 // - https://geo-ant.github.io/blog/2023/rust-dyn-trait-objects-fat-pointers/
 // - https://doc.rust-lang.org/std/any/
 // - https://bennett.dev/rust/downcast-trait-object/
-//
-// pub trait SomeError: Debug + Display + Send + Sync + 'static {
-//     fn as_any(&self) -> &dyn Any;
-// }
-//
-// pub type GenericError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 #[cfg(test)]
 mod tests {
@@ -683,9 +703,9 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::{
-        DependencyCondition, DependencyLocal, DependencyRemote, DependencyShare, EffectiveVersion,
-        ExternalLibraryDependency, ModuleDependency, VersionCompatibility, RUNTIME_EDITION,
-        RUNTIME_EDITION_STRING,
+        DependencyCondition, DependencyConditionCheck, DependencyLocal, DependencyParameterValue,
+        DependencyRemote, DependencyShare, EffectiveVersion, ExternalLibraryDependency,
+        ModuleDependency, VersionCompatibility, RUNTIME_EDITION, RUNTIME_EDITION_STRING,
     };
 
     #[test]
@@ -798,26 +818,36 @@ mod tests {
 
     #[test]
     fn test_serialize_dependency() {
+        let mut params0 = HashMap::new();
+        params0.insert("name".to_owned(), DependencyParameterValue::Flag(true));
+
         assert_eq!(
             ason::to_string(&ModuleDependency::Local(Box::new(DependencyLocal {
                 path: "~/projects/helloworld".to_owned(),
-                parameters: HashMap::default(),
+                parameters: params0,
                 condition: DependencyCondition::True
             })))
             .unwrap(),
             r#"module::local({
     path: "~/projects/helloworld"
     parameters: [
+        "name": param::flag(true)
     ]
     condition: cond::true
 })"#
+        );
+
+        let mut params1 = HashMap::new();
+        params1.insert(
+            "name".to_owned(),
+            DependencyParameterValue::String("value".to_owned()),
         );
 
         assert_eq!(
             ason::to_string(&ModuleDependency::Remote(Box::new(DependencyRemote {
                 url: "https://github.com/hemashushu/xiaoxuan-core-module.git".to_owned(),
                 reversion: "v1.0.0".to_owned(),
-                parameters: HashMap::default(),
+                parameters: params1,
                 condition: DependencyCondition::False,
             })))
             .unwrap(),
@@ -825,38 +855,61 @@ mod tests {
     url: "https://github.com/hemashushu/xiaoxuan-core-module.git"
     reversion: "v1.0.0"
     parameters: [
+        "name": param::string("value")
     ]
     condition: cond::false
 })"#
         );
 
+        let mut params2 = HashMap::new();
+        params2.insert("name".to_owned(), DependencyParameterValue::Number(123));
+
         assert_eq!(
             ason::to_string(&ModuleDependency::Share(Box::new(DependencyShare {
                 version: "2.3".to_owned(),
-                parameters: HashMap::default(),
-                condition: DependencyCondition::IsTrue("enable_abc".to_owned()),
+                parameters: params2,
+                condition: DependencyCondition::Any(vec![
+                    "enable_abc".to_owned(),
+                    "enable_xyz".to_owned()
+                ]),
             })))
             .unwrap(),
             r#"module::share({
     version: "2.3"
     parameters: [
+        "name": param::number(123)
     ]
-    condition: cond::is_true("enable_abc")
+    condition: cond::any([
+        "enable_abc"
+        "enable_xyz"
+    ])
 })"#
         );
 
+        let mut params3 = HashMap::new();
+        params3.insert(
+            "name".to_owned(),
+            DependencyParameterValue::From("other_name".to_owned()),
+        );
         assert_eq!(
             ason::to_string(&ModuleDependency::Share(Box::new(DependencyShare {
                 version: "11.13".to_owned(),
-                parameters: HashMap::default(),
-                condition: DependencyCondition::Eval("enable_abc && enable_xyz".to_owned()),
+                parameters: params3,
+                condition: DependencyCondition::Check(vec![
+                    DependencyConditionCheck::String("name".to_owned(), "value".to_owned()),
+                    DependencyConditionCheck::Number("another_name".to_owned(), 123)
+                ]),
             })))
             .unwrap(),
             r#"module::share({
     version: "11.13"
     parameters: [
+        "name": param::from("other_name")
     ]
-    condition: cond::eval("enable_abc && enable_xyz")
+    condition: cond::check([
+        check::string("name", "value")
+        check::number("another_name", 123)
+    ])
 })"#
         );
     }
@@ -898,14 +951,17 @@ mod tests {
             ason::from_str::<ExternalLibraryDependency>(
                 r#"library::share({
                 version: "2.3"
-                condition: cond::is_true("enable_abc")
+                condition: cond::any(["enable_abc", "enable_xyz"])
             })"#
             )
             .unwrap(),
             ExternalLibraryDependency::Share(Box::new(DependencyShare {
                 version: "2.3".to_owned(),
                 parameters: HashMap::default(),
-                condition: DependencyCondition::IsTrue("enable_abc".to_owned()),
+                condition: DependencyCondition::Any(vec![
+                    "enable_abc".to_owned(),
+                    "enable_xyz".to_owned()
+                ]),
             }))
         );
 
@@ -913,14 +969,20 @@ mod tests {
             ason::from_str::<ExternalLibraryDependency>(
                 r#"library::share({
                 version: "11.13"
-                condition: cond::is_true("enable_abc && enable_xyz")
+                condition: cond::check([
+                    check::string("name", "value")
+                    check::number("another_name", 123)
+                ])
             })"#
             )
             .unwrap(),
             ExternalLibraryDependency::Share(Box::new(DependencyShare {
                 version: "11.13".to_owned(),
                 parameters: HashMap::default(),
-                condition: DependencyCondition::IsTrue("enable_abc && enable_xyz".to_owned()),
+                condition: DependencyCondition::Check(vec![
+                    DependencyConditionCheck::String("name".to_owned(), "value".to_owned()),
+                    DependencyConditionCheck::Number("another_name".to_owned(), 123)
+                ]),
             }))
         );
     }
