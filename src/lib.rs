@@ -580,74 +580,125 @@ pub struct DependencyShare {
     #[serde(default)]
     pub condition: DependencyCondition,
 }
-
-/// Properties for the module.
+/// Defines the possible property values for a module.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "prop")]
 pub enum PropertyValue {
+    /// Represents a string value.
     #[serde(rename = "string")]
     String(String),
 
+    /// Represents a numeric value (32-bit integer).
     #[serde(rename = "number")]
     Number(i32),
 
+    /// Represents a boolean flag.
     #[serde(rename = "flag")]
     Flag(bool),
+
+    /// Represents an option flag with a default value and a list of rejected flags.
+    #[serde(rename = "option_flag")]
+    OptionFlag { default: bool, rejects: Vec<String> },
 }
 
-/// Dependency parameter value.
+/// Represents values that can be passed to a dependency module.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "param")]
 pub enum DependencyParameterValue {
+    /// Represents a string value.
     #[serde(rename = "string")]
     String(String),
 
+    /// Represents a numeric value (32-bit integer).
     #[serde(rename = "number")]
     Number(i32),
 
+    /// Represents a boolean flag.
     #[serde(rename = "flag")]
     Flag(bool),
 
-    /// Inherite value from the specified property.
+    /// Represents a value inherited from a specified property.
     #[serde(rename = "from")]
     From(String),
 }
 
+// Flag Unification
+// ----------------
+//
+// When a single shared module is included multiple times in a project's dependency tree
+// with different flags requested by different dependencies, the XiaoXuan Core compiler
+// performs a process called flag unification. This ensures that only one copy of each
+// specific version of a dependency module is compiled and included in the final build.
+//
+// The compiler resolves the dependency tree to select a single compatible version for
+// each module. When building that version, it enables the union of all flags requested
+// for that module across the entire dependency graph.
+//
+// Example:
+//
+// Suppose your project "my_app" depends on "module_a" and "module_b".
+//
+// - "module_a" depends on "common_module" v1.0.1 with flag "flag_x" enabled.
+// - "module_b" depends on "common_module" v1.0.2 with flag "flag_y" enabled.
+//
+// When XiaoXuan Core compiles "common_module" v1.0.2 for your project, it will do so
+// with both "flag_x" and "flag_y" enabled.
+
+// Dependency Parameter Conflicts
+// ------------------------------
+//
+// Unlike flags, when a single shared module is included multiple times in a project's
+// dependency tree with different parameter values (of string or number type) requested
+// by different dependencies, the compilation will fail. This is because parameter values
+// cannot be unified like flags.
+
+/// Defines conditions for dependency inclusion.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "cond")]
 pub enum DependencyCondition {
-    // Always True, used for default settings.
+    /// Always evaluates to `true`. Used for default settings.
     #[serde(rename = "true")]
     True,
 
-    // Always False, used for disable temporary.
+    /// Always evaluates to `false`. Used for temporarily disabling dependencies.
     #[serde(rename = "false")]
     False,
 
-    // Equals to true if one of flags is true.
+    /// Evaluates to `true` if any of the specified flags are `true`.
     #[serde(rename = "any")]
     Any(Vec<String>),
 
-    // Equals to true if one of properties is match.
+    /// Evaluates to `true` if any of the specified properties match the given conditions.
     #[serde(rename = "check")]
     Check(Vec<DependencyConditionCheck>),
 }
 
 impl Default for DependencyCondition {
+    /// Provides the default condition, which is `True`.
     fn default() -> Self {
         Self::True
     }
 }
 
+/// Represents a condition check for a dependency.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(rename = "check")]
 pub enum DependencyConditionCheck {
+    /// Checks if a string property matches a specific value.
     #[serde(rename = "string")]
-    String(/* name */ String, /* value */ String),
+    String(
+        /* property name */ String,
+        /* expected value */ String,
+    ),
 
+    /// Checks if a numeric property matches a specific value.
     #[serde(rename = "number")]
-    Number(/* name */ String, /* value */ i32),
+    Number(
+        /* property name */ String,
+        /* expected value */ i32,
+    ),
 
+    /// Checks if a boolean flag is set to `true`.
     #[serde(rename = "flag")]
     Flag(String),
 }
