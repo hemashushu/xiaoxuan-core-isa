@@ -356,14 +356,14 @@ pub enum ModuleDependencyType {
 
     // Module from a remote Git repository.
     //
-    // The value contains the Git repository URL, commit (hash), and path, e.g.:
+    // The value contains the Git repository URL, commit (hash), and directory, e.g.:
     //
     // ```ason
     // modules: [
     //   "module_name": module::remote({
     //       url: "https://github.com/hemashushu/xiaoxuan-core-extension.git",
     //       revision: "commit or tag",
-    //       path: "/modules/sha2"
+    //       dir: "/modules/sha2"
     //     })
     // ]
     // ```
@@ -418,67 +418,16 @@ pub enum ModuleDependencyType {
 }
 
 /// The type of dependent libraries.
+/// The library refers to the module of XiaoXuan C, the XaioXuan Core Runtime will
+/// download the XiaoXuan C runtime if a module contains an external library dependency.
+/// The value of this type is similar to the `ModuleDependencyType`,
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ExternalLibraryDependencyType {
-    // Library from the local file system.
-    //
-    // The dependency name is the library's soname without the "lib" prefix and ".so.MAJOR" suffix.
-    // The value is a path to the library file, e.g.:
-    //
-    // ```ason
-    // libraries: [
-    //    "hello": library::local({
-    //        path: "~/myprojects/hello/output/libhello.so.1"
-    //      })
-    // ]
-    // ```
-    //
-    // Note: The difference between soname, real name, and link name:
-    // - soname: "libNAME.so.MAJOR"
-    // - real name: "libNAME.so.MAJOR.MINOR.PATCH"
-    // - link name: "libNAME.so" (the linker likes "ld" and "lld" only use the NAME part)
     Local = 0x0,
-
-    // Library from a remote Git repository.
-    //
-    // Example:
-    //
-    // ```ason
-    // libraries: [
-    //   "lz4": library::remote({
-    //       url: "https://github.com/hemashushu/xiaoxuan-cc-lz4.git",
-    //       revision: "commit/tag",
-    //     })
-    // ]
-    // ```
     Remote,
-
-    // Library from the central registry.
-    //
-    // Example:
-    //
-    // ```ason
-    // libraries: [
-    //   "zlib": library::share({
-    //       version: "{major.minor.patch}"
-    //     })
-    // ]
-    // ```
     Share,
-
-    // Library from the system.
-    //
-    // The dependency name is the library's soname without the "lib" prefix and ".so.N" suffix.
-    //
-    // Example:
-    //
-    // ```ason
-    // libraries: [
-    //   "lz4": library::system("liblz4.so.1")
-    // ]
-    // ```
-    System,
+    Runtime,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -521,8 +470,8 @@ pub enum ExternalLibraryDependency {
     #[serde(rename = "share")]
     Share(Box<DependencyShare>),
 
-    #[serde(rename = "system")]
-    System(/* the soname of library, e.g. libz.so.1 */ String),
+    #[serde(rename = "runtime")]
+    Runtime,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -552,6 +501,10 @@ pub struct DependencyRemote {
 
     /// Git commit or tag.
     pub reversion: String,
+
+    /// The directory in the repository where the module is located.
+    /// If not specified, the default value is the root directory of the repository.
+    pub dir: Option<String>,
 
     /// Optional.
     /// The default value is [].
@@ -592,13 +545,13 @@ pub enum PropertyValue {
     #[serde(rename = "number")]
     Number(i32),
 
-    /// Represents a boolean flag.
-    #[serde(rename = "flag")]
+    /// Represents a boolean value (flag).
+    #[serde(rename = "bool")]
     Flag(bool),
 
-    /// Represents an option flag with a default value and a list of rejected flags.
-    #[serde(rename = "option_flag")]
-    OptionFlag { default: bool, rejects: Vec<String> },
+    /// Represents a boolean value with a set of mutually exclusive options.
+    #[serde(rename = "group")]
+    Group(/* group name */ String, /* checked */ bool),
 }
 
 /// Represents values that can be passed to a dependency module.
@@ -613,9 +566,9 @@ pub enum DependencyParameterValue {
     #[serde(rename = "number")]
     Number(i32),
 
-    /// Represents a boolean flag.
-    #[serde(rename = "flag")]
-    Flag(bool),
+    /// Represents a boolean value.
+    #[serde(rename = "bool")]
+    Bool(bool),
 
     /// Represents a value inherited from a specified property.
     #[serde(rename = "from")]
@@ -627,10 +580,7 @@ pub enum DependencyParameterValue {
 //
 // When a single shared module is included multiple times in a project's dependency tree
 // with different flags requested by different dependencies, the XiaoXuan Core compiler
-// performs a process called flag unification. This ensures that only one copy of each
-// specific version of a dependency module is compiled and included in the final build.
-//
-// The compiler resolves the dependency tree to select a single compatible version for
+// resolves the dependency tree to select a single compatible version for
 // each module. When building that version, it enables the union of all flags requested
 // for that module across the entire dependency graph.
 //
@@ -648,8 +598,8 @@ pub enum DependencyParameterValue {
 // ------------------------------
 //
 // Unlike flags, when a single shared module is included multiple times in a project's
-// dependency tree with different parameter values (of string or number type) requested
-// by different dependencies, the compilation will fail. This is because parameter values
+// dependency tree with different string or number type parameter values requested
+// by different dependencies, the compilation will fail. This is because these type parameter values
 // cannot be unified like flags.
 
 /// Defines conditions for dependency inclusion.
@@ -664,13 +614,13 @@ pub enum DependencyCondition {
     #[serde(rename = "false")]
     False,
 
-    /// Evaluates to `true` if any of the specified flags are `true`.
-    #[serde(rename = "any")]
-    Any(Vec<String>),
-
     /// Evaluates to `true` if any of the specified properties match the given conditions.
-    #[serde(rename = "check")]
-    Check(Vec<DependencyConditionCheck>),
+    #[serde(rename = "any")]
+    Any(Vec<DependencyConditionCheck>),
+
+    /// Evaluates to `true` if all of the specified properties match the given conditions.
+    #[serde(rename = "all")]
+    All(Vec<DependencyConditionCheck>),
 }
 
 impl Default for DependencyCondition {
@@ -698,9 +648,13 @@ pub enum DependencyConditionCheck {
         /* expected value */ i32,
     ),
 
-    /// Checks if a boolean flag is set to `true`.
-    #[serde(rename = "flag")]
-    Flag(String),
+    /// Checks if a boolean is set to `true`.
+    #[serde(rename = "true")]
+    True(String),
+
+    /// Checks if a boolean is set to `false`.
+    #[serde(rename = "false")]
+    False(String),
 }
 
 impl Display for ExternalLibraryDependencyType {
@@ -709,7 +663,7 @@ impl Display for ExternalLibraryDependencyType {
             ExternalLibraryDependencyType::Local => f.write_str("local"),
             ExternalLibraryDependencyType::Remote => f.write_str("remote"),
             ExternalLibraryDependencyType::Share => f.write_str("share"),
-            ExternalLibraryDependencyType::System => f.write_str("system"),
+            ExternalLibraryDependencyType::Runtime => f.write_str("runtime"),
         }
     }
 }
@@ -870,7 +824,7 @@ mod tests {
     #[test]
     fn test_serialize_dependency() {
         let mut params0 = HashMap::new();
-        params0.insert("name".to_owned(), DependencyParameterValue::Flag(true));
+        params0.insert("name".to_owned(), DependencyParameterValue::Bool(true));
 
         assert_eq!(
             ason::to_string(&ModuleDependency::Local(Box::new(DependencyLocal {
@@ -882,7 +836,7 @@ mod tests {
             r#"module::local({
     path: "~/projects/helloworld"
     parameters: [
-        "name": param::flag(true)
+        "name": param::bool(true)
     ]
     condition: cond::true
 })"#
@@ -900,11 +854,13 @@ mod tests {
                 reversion: "v1.0.0".to_owned(),
                 parameters: params1,
                 condition: DependencyCondition::False,
+                dir: Some("/modules/http_client".to_owned()),
             })))
             .unwrap(),
             r#"module::remote({
     url: "https://github.com/hemashushu/xiaoxuan-core-module.git"
     reversion: "v1.0.0"
+    dir: Option::Some("/modules/http_client")
     parameters: [
         "name": param::string("value")
     ]
@@ -920,8 +876,8 @@ mod tests {
                 version: "2.3".to_owned(),
                 parameters: params2,
                 condition: DependencyCondition::Any(vec![
-                    "enable_abc".to_owned(),
-                    "enable_xyz".to_owned()
+                    DependencyConditionCheck::True("enable_abc".to_owned()),
+                    DependencyConditionCheck::False("enable_xyz".to_owned())
                 ]),
             })))
             .unwrap(),
@@ -931,8 +887,8 @@ mod tests {
         "name": param::number(123)
     ]
     condition: cond::any([
-        "enable_abc"
-        "enable_xyz"
+        check::true("enable_abc")
+        check::false("enable_xyz")
     ])
 })"#
         );
@@ -946,7 +902,7 @@ mod tests {
             ason::to_string(&ModuleDependency::Share(Box::new(DependencyShare {
                 version: "11.13".to_owned(),
                 parameters: params3,
-                condition: DependencyCondition::Check(vec![
+                condition: DependencyCondition::All(vec![
                     DependencyConditionCheck::String("name".to_owned(), "value".to_owned()),
                     DependencyConditionCheck::Number("another_name".to_owned(), 123)
                 ]),
@@ -957,7 +913,7 @@ mod tests {
     parameters: [
         "name": param::from("other_name")
     ]
-    condition: cond::check([
+    condition: cond::all([
         check::string("name", "value")
         check::number("another_name", 123)
     ])
@@ -994,7 +950,8 @@ mod tests {
                 url: "https://github.com/hemashushu/xiaoxuan-cc-lz4.git".to_owned(),
                 reversion: "v1.0.0".to_owned(),
                 parameters: HashMap::default(),
-                condition: DependencyCondition::False
+                condition: DependencyCondition::False,
+                dir: None,
             }))
         );
 
@@ -1002,7 +959,10 @@ mod tests {
             ason::from_str::<ExternalLibraryDependency>(
                 r#"library::share({
                 version: "2.3"
-                condition: cond::any(["enable_abc", "enable_xyz"])
+                condition: cond::any([
+                    check::true("enable_abc")
+                    check::false("enable_xyz")
+                ])
             })"#
             )
             .unwrap(),
@@ -1010,8 +970,8 @@ mod tests {
                 version: "2.3".to_owned(),
                 parameters: HashMap::default(),
                 condition: DependencyCondition::Any(vec![
-                    "enable_abc".to_owned(),
-                    "enable_xyz".to_owned()
+                    DependencyConditionCheck::True("enable_abc".to_owned()),
+                    DependencyConditionCheck::False("enable_xyz".to_owned())
                 ]),
             }))
         );
@@ -1020,7 +980,7 @@ mod tests {
             ason::from_str::<ExternalLibraryDependency>(
                 r#"library::share({
                 version: "11.13"
-                condition: cond::check([
+                condition: cond::all([
                     check::string("name", "value")
                     check::number("another_name", 123)
                 ])
@@ -1030,7 +990,7 @@ mod tests {
             ExternalLibraryDependency::Share(Box::new(DependencyShare {
                 version: "11.13".to_owned(),
                 parameters: HashMap::default(),
-                condition: DependencyCondition::Check(vec![
+                condition: DependencyCondition::All(vec![
                     DependencyConditionCheck::String("name".to_owned(), "value".to_owned()),
                     DependencyConditionCheck::Number("another_name".to_owned(), 123)
                 ]),

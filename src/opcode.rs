@@ -138,10 +138,11 @@
 // Instruction Encoding
 // --------------------
 //
-// VM instructions are NOT fixed-length. They can be 16, 32, 64, 96, or 128 bits long.
+// VM instructions use a variable-length encoding (i.e.,
+// they are NOT fixed-length). Instructions can be 16, 32, 64, 96, or 128 bits long.
 //
 // Each instruction consists of an opcode and zero or more parameters.
-// Parameters only support i16 and i32.
+// Parameters are limited to i16 and i32 types.
 //
 // Instruction lengths:
 //
@@ -184,7 +185,7 @@
 // The opcode consists of two parts: categories and items, both of which are 8-bit numbers.
 //
 // MSB           LSB
-// 00000000 00000000
+// 00000000 00000000 <-- bits
 // -------- --------
 // ^        ^
 // |        | items
@@ -200,8 +201,6 @@
 //
 // The 'index' carries information about the kind, data type, length (boundary), and other properties of the object.
 // For example, when accessing data using an index, the VM can verify the type and range to ensure safety.
-
-pub const MAX_OPCODE_NUMBER: usize = 0x0c_00;
 
 #[repr(u16)]
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -843,7 +842,7 @@ pub enum Opcode {
     // () (operand number:f32) -> f32
     exp_f32,
 
-    // Exponential function (2^x) for f32
+    // Base-2 exponential function (2^x) for f32
     //
     // () (operand number:f32) -> f32
     exp2_f32,
@@ -976,7 +975,7 @@ pub enum Opcode {
     // () (operand number:f64) -> f64
     exp_f64,
 
-    // Exponential function (2^x) for f64
+    // Base-2 exponential function (2^x) for f64
     //
     // () (operand number:f64) -> f64
     exp2_f64,
@@ -1708,7 +1707,7 @@ pub enum Opcode {
     // General Function Call
     //
     // (param function_public_index:i32) (operand args...) -> (values)
-    call,
+    call = 0x0A_00,
 
     // Note about the `function_public_index`
     // --------------------------------------
@@ -1832,16 +1831,16 @@ pub enum Opcode {
     // Notes:
     // - The index of the memory chunk is not necessarily sequential.
     // - Both alignment and size must be multiples of 8.
-    // - If the `align` parameter is 0, the default value of 8 is used.
+    // - `align` must not be 0.
     // - The `module_index` of allocated memory is always 0.
     //
-    // () (operand align_in_bytes:i16 size_in_bytes:i64) -> i32
-    memory_allocate = 0x0a_00,
+    // () (operand size_in_bytes:i64 alignment_in_bytes:i16) -> i32
+    memory_allocate = 0x0B_00,
 
     // Resize an existing memory chunk.
     //
-    // () (operand data_public_index:i32 new_size_in_bytes:i64) -> i32
-    memory_resize,
+    // () (operand data_public_index:i32 new_size_in_bytes:i64 alignment_in_bytes:i16) -> i32
+    memory_reallocate,
 
     // Free an existing memory chunk.
     //
@@ -1851,8 +1850,11 @@ pub enum Opcode {
     // Fill a memory chunk with a specified value.
     //
     // () (operand
-    // data_module_index:i32 data_public_index:i32 offset_in_bytes:i64
-    // size_in_bytes:i64 value:i8) -> ()
+    //     data_module_index:i32
+    //     data_public_index:i32
+    //     offset_in_bytes:i64
+    //     size_in_bytes:i64
+    //     value:i8) -> ()
     memory_fill,
 
     // Copy a memory chunk from one location to another.
@@ -1860,9 +1862,13 @@ pub enum Opcode {
     // Note: The source and destination memory chunks must not overlap.
     //
     // () (operand
-    // source_data_module_index:i32 source_data_public_index:i32 source_offset_in_bytes:i64
-    // dest_data_module_index:i32 dest_data_public_index:i32 dest_offset_in_bytes:i64
-    // size_in_bytes:i64 value:i8) -> ()
+    //     source_data_module_index:i32
+    //     source_data_public_index:i32
+    //     source_offset_in_bytes:i64
+    //     dest_data_module_index:i32
+    //     dest_data_public_index:i32
+    //     dest_offset_in_bytes:i64
+    //     size_in_bytes:i64) -> ()
     memory_copy,
 
     // Category: Machine
@@ -1872,12 +1878,12 @@ pub enum Opcode {
     // This is generally used in cases where an unrecoverable error is encountered.
     //
     // (param terminate_code:i32) -> NERVER_RETURN
-    terminate,
+    terminate = 0x0C_00,
 
     // Pushes the module index and function public index onto the operand stack.
     //
     // (param function_public_index:i32) -> (function_module_index:i32 function_public_index:i32)
-    get_function = 0x0b_00,
+    get_function,
 
     // Pushes the module index and data public index onto the operand stack.
     //
@@ -2167,6 +2173,7 @@ impl Opcode {
             Opcode::block_alt => "block_alt",
             Opcode::break_alt => "break_alt",
             Opcode::block_nez => "block_nez",
+            // Category: Function Call
             Opcode::call => "call",
             Opcode::call_dynamic => "call_dynamic",
             Opcode::envcall => "envcall",
@@ -2174,7 +2181,7 @@ impl Opcode {
             Opcode::extcall => "extcall",
             // Category: Memory
             Opcode::memory_allocate => "memory_allocate",
-            Opcode::memory_resize => "memory_resize",
+            Opcode::memory_reallocate => "memory_reallocate",
             Opcode::memory_free => "memory_free",
             Opcode::memory_fill => "memory_fill",
             Opcode::memory_copy => "memory_copy",
@@ -2434,6 +2441,7 @@ impl Opcode {
             "block_alt" => Opcode::block_alt,
             "break_alt" => Opcode::break_alt,
             "block_nez" => Opcode::block_nez,
+            // Category: Function Call
             "call" => Opcode::call,
             "call_dynamic" => Opcode::call_dynamic,
             "envcall" => Opcode::envcall,
@@ -2441,7 +2449,7 @@ impl Opcode {
             "extcall" => Opcode::extcall,
             // Category: Memory
             "memory_allocate" => Opcode::memory_allocate,
-            "memory_resize" => Opcode::memory_resize,
+            "memory_reallocate" => Opcode::memory_reallocate,
             "memory_free" => Opcode::memory_free,
             "memory_fill" => Opcode::memory_fill,
             "memory_copy" => Opcode::memory_copy,
